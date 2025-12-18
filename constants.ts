@@ -11,8 +11,8 @@ export const DEFAULT_WAGE_SETTINGS: WageSettings = {
   allowanceUsage: 1.0, // Default 100%
 };
 
-// Notum myndina sem notandinn hlóð upp
-export const LOGO_URL = "./image.png";
+// Use a placeholder image to avoid 404 errors for local assets
+export const LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
 
 export const PROJECTS = [
   "Samhjálp", 

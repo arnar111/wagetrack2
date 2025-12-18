@@ -152,7 +152,8 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             </div>
             <BarChart3 className="text-indigo-400 opacity-30" size={24} />
           </div>
-          <div className="h-[300px] w-full">
+          {/* Added min-h-[300px] to prevent ResponsiveContainer crash during zero-height phases */}
+          <div className="h-[300px] min-h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
