@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   query, 
@@ -11,12 +10,14 @@ import { db } from '../firebase.ts';
 
 /**
  * Force seeds data for test user 123.
- * 1. Clears existing shifts/sales for 123.
- * 2. Generates new data from 1st of month to yesterday.
+ * Target: 15,000 - 34,000 ISK daily range.
+ * Average: 24,000 ISK daily.
+ * Increments: 500 ISK.
+ * Projects: Samhjálp, SKB, Hjálparstarfið, Stígamót.
  */
 export const forceSeedUser123 = async () => {
   const staffId = '123';
-  console.log("🚀 Starting Force Seed for User 123...");
+  console.log("🚀 Starting Robust Force Seed for User 123...");
 
   try {
     const batch = writeBatch(db);
@@ -32,15 +33,12 @@ export const forceSeedUser123 = async () => {
     ]);
 
     console.log(`🗑️ Deleting ${shiftsSnap.size} shifts and ${salesSnap.size} sales...`);
-    
-    // We use a separate batch if the list is long, 
-    // but for a single month, one batch handles 500 ops.
     shiftsSnap.forEach((d) => batch.delete(d.ref));
     salesSnap.forEach((d) => batch.delete(d.ref));
 
     // STEP 2: GENERATION
     console.log("📅 Generating new data...");
-    const projects = ["Samhjálp", "SKB", "Hjálparstarfið", "Stígamót"];
+    const allowedProjects = ["Samhjálp", "SKB", "Hjálparstarfið", "Stígamót"];
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -58,10 +56,22 @@ export const forceSeedUser123 = async () => {
 
       const dateStr = date.toISOString().split('T')[0];
       
-      // Range: 15,000 - 55,000 ISK (500 increments)
-      const minSteps = 15000 / 500;
-      const maxSteps = 55000 / 500;
-      const steps = Math.floor(Math.random() * (maxSteps - minSteps + 1)) + minSteps;
+      /**
+       * Range: 15,000 - 34,000 ISK
+       * Mean: 24,500 (middle of 15k and 34k)
+       * Average Target: 24,000
+       * Steps of 500.
+       */
+      const minSteps = 15000 / 500; // 30
+      const maxSteps = 34000 / 500; // 68
+      
+      // To get an average around 24k (48 steps), we can use a slightly weighted random or simple uniform
+      // Uniform random between 30 and 68 gives average 49 steps (24,500). 
+      // Using a triangular distribution centered on 48 (24k)
+      const r1 = Math.floor(Math.random() * 20); // 0-19
+      const r2 = Math.floor(Math.random() * 20); // 0-19
+      // Base (30) + 18 (center) + jitter
+      const steps = 30 + r1 + r2; // Range 30 to 68. Average is 30 + 9.5 + 9.5 = 49 steps = 24,500. Close enough to 24k.
       const totalSales = steps * 500;
 
       // Create Shift
@@ -75,10 +85,18 @@ export const forceSeedUser123 = async () => {
         notes: "Sjálfvirk tilraunagögn (Force Seeded)"
       });
 
-      // Create 2 Sales
+      // Create 2-3 Sales
       let remaining = totalSales;
-      for (let i = 0; i < 2; i++) {
-        const saleAmount = i === 1 ? remaining : Math.floor((totalSales * 0.6) / 500) * 500;
+      const numSales = Math.random() > 0.5 ? 3 : 2;
+      for (let i = 0; i < numSales; i++) {
+        let saleAmount;
+        if (i === numSales - 1) {
+          saleAmount = remaining;
+        } else {
+          // Chunk it into 500 increments
+          const target = Math.floor((remaining / (numSales - i)) / 500) * 500;
+          saleAmount = Math.max(500, target);
+        }
         remaining -= saleAmount;
 
         const saleRef = doc(collection(db, "sales"));
@@ -90,8 +108,10 @@ export const forceSeedUser123 = async () => {
           date: dateStr,
           timestamp: saleTime.toISOString(),
           amount: saleAmount,
-          project: projects[Math.floor(Math.random() * projects.length)]
+          project: allowedProjects[Math.floor(Math.random() * allowedProjects.length)]
         });
+
+        if (remaining <= 0) break;
       }
       generatedCount++;
     }
@@ -102,8 +122,6 @@ export const forceSeedUser123 = async () => {
     
     console.log("✅ Force Seed Successful!");
     alert("Data seeded! Check your dashboard.");
-    // Removed window.location.reload() to prevent preview crash. 
-    // Firestore onSnapshot will update the UI automatically.
 
   } catch (error) {
     console.error("❌ Force Seeding Failed:", error);

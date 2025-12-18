@@ -1,7 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to safely initialize the AI client
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+    console.warn("Gemini API key is missing. AI features will use fallback data.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export interface SpeechResult {
   text: string;
@@ -9,6 +17,9 @@ export interface SpeechResult {
 }
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
+  const ai = getAiClient();
+  if (!ai) return "Vantar API lykil.";
+
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     const response = await ai.models.generateContent({
@@ -16,12 +27,23 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => 
       contents: [{ parts: [{ text: prompt }] }]
     });
     return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk að svo stöddu.";
-  } catch (e) { 
-    return "Villa við að sækja greiningu."; 
+  } catch (e) {
+    console.error("Gemini Error:", e);
+    return "Villa við að sækja greiningu.";
   }
 };
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
+  const fallback = {
+    projectedEarnings: summary.totalSales * 1.1,
+    trend: 'stable',
+    smartAdvice: "Skráðu vaktir til að sjá greiningu.",
+    motivationalQuote: "Gangi þér vel!"
+  };
+
+  const ai = getAiClient();
+  if (!ai) return fallback;
+
   try {
     const prompt = `Analyze sales trends for a TAKK employee. 
     Current Sales: ${summary.totalSales} ISK. Goal: ${goals.monthly} ISK.
@@ -49,18 +71,17 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
         }
       }
     });
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(response.text || JSON.stringify(fallback));
   } catch (e) {
-    return {
-      projectedEarnings: summary.totalSales * 1.15,
-      trend: 'stable',
-      smartAdvice: "Haltu áfram að skrá vaktir fyrir AI greiningu.",
-      motivationalQuote: "Allur árangur byrjar á ákvörðun um að reyna."
-    };
+    console.error("Gemini Error:", e);
+    return fallback;
   }
 };
 
 export const getAIProjectComparison = async (sales: Sale[]) => {
+  const ai = getAiClient();
+  if (!ai) return "Vantar API lykil fyrir samanburð.";
+
   try {
     const prompt = `Berðu saman árangur mismunandi verkefna (Samhjálp, SKB, Hjálparstarfið, Stígamót) byggt á þessum sölum: ${JSON.stringify(sales)}. 
     Hvaða verkefni virkar best í sölunni núna? Hvar eru tækifærin?
@@ -71,25 +92,34 @@ export const getAIProjectComparison = async (sales: Sale[]) => {
     });
     return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
   } catch (e) {
+    console.error("Gemini Error:", e);
     return "Villa við greiningu.";
   }
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
+  const ai = getAiClient();
+  if (!ai) return "Ég er því miður ekki með tengingu við gervigreindina í augnablikinu (vantar API lykil).";
+
   try {
     const systemInstruction = `Þú ert Addi, vinalegur og klár gervigreindar-aðstoðarmaður fyrir starfsmenn TAKK. Svaraðu ALLTAF á ÍSLENSKU. Notaðu hreinan texta.`;
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: history,
       config: { systemInstruction }
     });
     return response.text?.replace(/[*#]/g, '') || "Fyrirgefðu, ég átti erfitt með að svara þessu.";
   } catch (e) {
+    console.error("Gemini Error:", e);
     return "Tengingarvilla! Ég kemst ekki í sambandi við heilann minn í bili.";
   }
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string): Promise<SpeechResult> => {
+  const fallback = { text: "Vantar lykil.", sources: [] };
+  const ai = getAiClient();
+  if (!ai) return fallback;
+
   try {
     const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK. Svaraðu á íslensku. Hreinn texti.`;
     const userPrompt = mode === 'create' 
@@ -108,6 +138,9 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach((chunk: any) => {
       if (chunk.web?.uri) sources.push({ title: chunk.web.title || "Vefheimild", uri: chunk.web.uri });
     });
-    return { text: text.replace(/[*#\-_>]/g, '').trim(), sources };
-  } catch (e) { throw e; }
+    return { text: text.replace(/[*#\-_>]/g, '').trim() || fallback.text, sources };
+  } catch (e) {
+    console.error("Gemini Error:", e);
+    return fallback;
+  }
 };
