@@ -24,28 +24,60 @@ export const calculateSalesBonus = (totalSales: number, totalHours: number): num
 };
 
 /**
+ * Calculates the team's weekly and monthly velocity.
+ * Projected = (Total Sales / Days Elapsed) * Total Days in Period
+ */
+export const calculateVelocity = (currentSales: number, goal: number, period: 'weekly' | 'monthly'): { projected: number; velocityPercent: number } => {
+  const now = new Date();
+  let elapsed: number;
+  let total: number;
+
+  if (period === 'weekly') {
+    elapsed = now.getDay() || 7; // Sunday as 7
+    total = 7;
+  } else {
+    elapsed = now.getDate();
+    total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  }
+
+  const projected = (currentSales / elapsed) * total;
+  const velocityPercent = goal > 0 ? (projected / goal) * 100 : 0;
+
+  return { projected, velocityPercent };
+};
+
+/**
  * Groups sales and hours by project for deep-dive analytics.
- * Standardizes project naming to catch both 'project' and 'projectName' fields.
  */
 export const getProjectMetrics = (sales: Sale[], shifts: Shift[]) => {
-  const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number }> = {};
+  const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number; prevWeekSales: number }> = {};
 
-  const getProjName = (p: string) => p === 'Hringurinn' || p === 'Verið' ? p : 'Other';
+  const getProjName = (p: string) => (p === 'Hringurinn' || p === 'Verið') ? p : 'Other';
+  
+  const now = new Date();
+  const lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const lastWeekEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   sales.forEach(s => {
     const p = getProjName(s.project);
-    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0, prevWeekSales: 0 };
+    
+    const saleDate = new Date(s.date);
+    if (saleDate >= lastWeekStart && saleDate < lastWeekEnd) {
+      metrics[p].prevWeekSales += s.amount;
+    }
+    
     metrics[p].sales += s.amount;
     metrics[p].count += 1;
   });
 
   shifts.forEach(s => {
     const p = getProjName(s.projectName || 'Other');
-    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0, prevWeekSales: 0 };
     const h = (s.dayHours || 0) + (s.eveningHours || 0);
     metrics[p].hours += h;
     metrics[p].effHours += calculateEffectiveHours(h);
-    // Fixed cost based on Day Rate for budgeting: 2724.88
+    // Cost calculation based on fixed wage estimation (2724.88)
     metrics[p].cost += h * 2724.88; 
   });
 
