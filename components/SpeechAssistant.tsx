@@ -19,7 +19,8 @@ export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
     setResult(null);
     
     try {
-      const context = `Núverandi sala dagsins er ${summary.totalSales} ISK.`;
+      // NOTE: Removed personal sales context to ensure AI focuses on project-specific urgency
+      const context = ""; 
       const res = await getSpeechAssistantResponse(mode, project, context);
       setResult(res);
     } catch (e: any) {
@@ -73,7 +74,7 @@ export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
                   className={`flex-1 p-4 rounded-3xl border text-center transition-all flex flex-col items-center gap-2 ${mode === 'create' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-white/5 border-white/5 text-slate-600 hover:bg-white/10'}`}
                 >
                   <PlusCircle size={24} />
-                  <span className="text-[9px] font-black uppercase tracking-widest">5 Urgency Brot</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest">Ræðubútur (70+ orð)</span>
                 </button>
                 <button 
                   onClick={() => setMode('search')} 
@@ -151,17 +152,10 @@ export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
                     const trimmed = line.trim();
                     if (!trimmed) return null;
                     
-                    // Greina hvort þetta sé nýtt brot (t.d. byrjar á tölu)
-                    const isPoint = /^[0-9]\./.test(trimmed);
-                    
                     return (
                       <div 
                         key={i} 
-                        className={`text-slate-200 text-base leading-relaxed font-medium transition-all hover:text-white ${
-                          isPoint 
-                            ? 'p-6 md:p-8 bg-indigo-500/5 rounded-[32px] border border-white/5 shadow-sm hover:border-indigo-500/30' 
-                            : 'px-4'
-                        }`}
+                        className="text-slate-200 text-base leading-relaxed font-medium transition-all hover:text-white p-6 md:p-8 bg-indigo-500/5 rounded-[32px] border border-white/5 shadow-sm hover:border-indigo-500/30"
                       >
                         {line}
                       </div>

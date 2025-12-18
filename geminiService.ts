@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
@@ -140,10 +141,18 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   if (!ai) return fallback;
 
   try {
-    const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK. Svaraðu á íslensku. Hreinn texti.`;
+    const systemInstruction = `Þú ert reyndur sölusérfræðingur og ræðuhönnuður fyrir TAKK. 
+    Þegar þú býrð til ræðubúta (ræðubútar), skaltu tryggja að þeir séu hvetjandi, sannfærandi og innihaldi mikilvægar upplýsingar um verkefnið ${project}. 
+    MIKILVÆGT: Þú mátt ALDREI nota tölur um persónulegan sölumarkmið eða árangur starfsmannsins sjálfs í ræðunni. Einbeittu þér eingöngu að málefninu sjálfu.
+    Svaraðu alltaf á ÍSLENSKU. Notaðu eingöngu hreinan texta án sérstakra tákna (ekkert * eða #).`;
+
     const userPrompt = mode === 'create' 
-      ? `Búðu til 5 urgency sölubúta fyrir ${project}. ${context || ''}`
-      : `Finndu helstu sölupunkta fyrir ${project}.`;
+      ? `Skrifaðu ítarlegan og sannfærandi ræðubút fyrir verkefnið ${project}. 
+         Ræðubúturinn verður að vera að minnsta kosti 70 orð að lengd. 
+         Notaðu þekkingu þína á verkefninu sem grunn. 
+         Ekki nota neina tölfræði um sölu eða árangur starfsmannsins.
+         Auka samhengi (valfrjálst): ${context || ''}`
+      : `Finndu helstu sölupunkta og mikilvægustu staðreyndirnar um verkefnið ${project}.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
