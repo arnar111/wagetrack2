@@ -3,6 +3,8 @@ export interface User {
   id: string;
   name: string;
   staffId: string;
+  role: 'agent' | 'manager';
+  team: 'Hringurinn' | 'Verið' | 'Other';
 }
 
 export interface Shift {
@@ -12,6 +14,8 @@ export interface Shift {
   eveningHours: number; // 17:00 - 00:00
   totalSales: number;
   notes: string;
+  projectName: string;
+  userId: string;
 }
 
 export interface Sale {
@@ -20,6 +24,7 @@ export interface Sale {
   timestamp: string; // ISO string with time
   amount: number;
   project: string;
+  userId: string;
 }
 
 export interface WageSummary {

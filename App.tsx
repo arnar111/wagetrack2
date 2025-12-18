@@ -12,7 +12,8 @@ import {
   Sparkle,
   Mic2,
   PieChart,
-  ShieldCheck
+  ShieldCheck,
+  BarChart4
 } from 'lucide-react';
 import { 
   collection, 
@@ -24,9 +25,7 @@ import {
   addDoc, 
   deleteDoc, 
   updateDoc,
-  orderBy,
-  getDocs,
-  writeBatch
+  orderBy
 } from 'firebase/firestore';
 import { db } from './firebase.ts';
 import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
@@ -43,12 +42,15 @@ import ProjectInsights from './components/ProjectInsights.tsx';
 import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
+import ManagerDashboard from './components/ManagerDashboard.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'speech' | 'settings' | 'insights' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [allShifts, setAllShifts] = useState<Shift[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]);
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
@@ -77,10 +79,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    
+    // User specific data
     const shiftsQ = query(collection(db, "shifts"), where("userId", "==", user.staffId), orderBy("date", "desc"));
     const unsubShifts = onSnapshot(shiftsQ, (snapshot) => setShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
+    
     const salesQ = query(collection(db, "sales"), where("userId", "==", user.staffId), orderBy("timestamp", "desc"));
     const unsubSales = onSnapshot(salesQ, (snapshot) => setSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
+    
     const configRef = doc(db, "user_configs", user.staffId);
     const unsubConfig = onSnapshot(configRef, (d) => {
       if (d.exists()) {
@@ -89,7 +95,16 @@ const App: React.FC = () => {
         if (data.wageSettings) setWageSettings(data.wageSettings);
       }
     });
-    return () => { unsubShifts(); unsubSales(); unsubConfig(); };
+
+    // Global data for manager
+    let unsubAllShifts = () => {};
+    let unsubAllSales = () => {};
+    if (user.role === 'manager') {
+      unsubAllShifts = onSnapshot(collection(db, "shifts"), (snapshot) => setAllShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
+      unsubAllSales = onSnapshot(collection(db, "sales"), (snapshot) => setAllSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
+    }
+
+    return () => { unsubShifts(); unsubSales(); unsubConfig(); unsubAllShifts(); unsubAllSales(); };
   }, [user]);
 
   const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
@@ -137,7 +152,10 @@ const App: React.FC = () => {
 
   if (!user) return <Login onLogin={setUser} />;
   const isAdmin = String(user.staffId) === '570';
+  const isManager = user.role === 'manager';
+
   const navItems = [
+    ...(isManager ? [{ id: 'manager_dash', icon: <BarChart4 size={20} />, label: 'Command Center' }] : []),
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
     { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
     { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
@@ -147,6 +165,9 @@ const App: React.FC = () => {
     { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
     ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' }] : []),
   ];
+
+  // Route Protection
+  const currentTab = activeTab === 'manager_dash' && !isManager ? 'dashboard' : activeTab;
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
@@ -161,18 +182,22 @@ const App: React.FC = () => {
             ) : (
               <span className="text-3xl font-black italic tracking-tighter text-white mb-2">TAKK</span>
             )}
-            <h1 className="text-[10px] font-black tracking-[0.3em] text-indigo-400 uppercase italic">LaunaApp Takk</h1>
+            <h1 className="text-[10px] font-black tracking-[0.3em] text-indigo-400 uppercase italic">WageTrack Pro</h1>
           </div>
         </div>
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id as any); if(item.id !== 'register') setEditingShift(null); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? 'gradient-bg text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+            <button key={item.id} onClick={() => { setActiveTab(item.id); if(item.id !== 'register') setEditingShift(null); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${currentTab === item.id ? 'gradient-bg text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
               <span className="shrink-0">{item.icon}</span>
               <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
             </button>
           ))}
         </nav>
         <div className="p-4 border-t border-white/5 space-y-2">
+          <div className="px-4 py-2 bg-indigo-500/10 rounded-xl mb-2">
+             <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{user.role}</p>
+             <p className="text-[10px] font-bold text-white truncate">{user.name}</p>
+          </div>
           <button onClick={() => setUser(null)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
             <LogOut size={20} className="shrink-0" />
             <span className="font-bold text-xs uppercase tracking-wider">Skrá út</span>
@@ -183,7 +208,7 @@ const App: React.FC = () => {
         <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all group"><Menu size={20} /></button>
-            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === activeTab)?.label}</h2>
+            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === currentTab)?.label}</h2>
           </div>
           <div className="flex items-center gap-3">
              <button onClick={triggerAiInsights} disabled={isLoadingInsights || shifts.length === 0} className="hidden sm:flex items-center gap-2 px-4 py-2 glass border-indigo-500/30 rounded-full text-[10px] font-black text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-30">
@@ -194,7 +219,14 @@ const App: React.FC = () => {
         </header>
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10 pb-32 md:pb-10">
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {activeTab === 'dashboard' && (
+            {currentTab === 'manager_dash' && isManager && (
+              <ManagerDashboard 
+                allShifts={allShifts} 
+                allSales={allSales} 
+                allUsers={allUsers} 
+              />
+            )}
+            {currentTab === 'dashboard' && (
               <Dashboard 
                 summary={summary} 
                 shifts={shifts} 
@@ -206,13 +238,13 @@ const App: React.FC = () => {
                 staffId={user.staffId} 
               />
             )}
-            {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} />}
-            {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
-            {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
-            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
-            {activeTab === 'payslip' && <Payslip shifts={shifts} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
-            {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
-            {activeTab === 'settings' && (
+            {currentTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} />}
+            {currentTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
+            {currentTab === 'speech' && <SpeechAssistant summary={summary} />}
+            {currentTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
+            {currentTab === 'payslip' && <Payslip shifts={shifts} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
+            {currentTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
+            {currentTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
                 <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -229,7 +261,7 @@ const App: React.FC = () => {
             )}
           </div>
         </main>
-        <MobileDock activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
+        <MobileDock activeTab={currentTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
       </div>
       <Chatbot />
     </div>

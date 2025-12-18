@@ -33,14 +33,16 @@ const ShiftForm: React.FC<ShiftFormProps> = ({ onSave }) => {
     const dayHours = formData.type === 'Dagur' ? Math.max(0, duration) : 0;
     const eveningHours = formData.type === 'Eftirvinna' ? Math.max(0, duration) : 0;
 
-    // Fix: Ensure the object passed to onSave matches the Shift interface
+    // Fix: Ensure the object passed to onSave matches the Shift interface by adding missing properties
     onSave({
       id: Math.random().toString(36).substr(2, 9),
       date: formData.date,
       dayHours: dayHours,
       eveningHours: eveningHours,
       totalSales: 0, // In this flow, sales are often calculated separately or added later
-      notes: formData.notes
+      notes: formData.notes,
+      projectName: 'Other', // Satisfy Shift interface
+      userId: ''           // Satisfy Shift interface
     });
   };
 

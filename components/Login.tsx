@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase.ts';
@@ -31,7 +30,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       } else {
         // Fallback for hardcoded admin if database is empty or connection fails
         if (cleanInput === '570') {
-           onLogin({ id: 'admin-fallback', name: 'Addi', staffId: '570' });
+           // Fix: Add missing 'role' and 'team' properties to satisfy User interface
+           onLogin({ id: 'admin-fallback', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
         } else {
           setError(true);
           setTimeout(() => {

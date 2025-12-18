@@ -22,7 +22,8 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
     date: new Date().toISOString().split('T')[0],
     dayHours: 0,
     eveningHours: 0,
-    notes: ''
+    notes: '',
+    projectName: 'Other'
   });
 
   const [saleData, setSaleData] = useState({
@@ -36,7 +37,8 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
         date: editingShift.date,
         dayHours: editingShift.dayHours,
         eveningHours: editingShift.eveningHours,
-        notes: editingShift.notes
+        notes: editingShift.notes,
+        projectName: editingShift.projectName || 'Other'
       });
       setShowPopup(false);
     } else {
@@ -77,10 +79,10 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
 
   const handleQuickAdd = (type: 'hringurinn' | 'verid') => {
     if (type === 'hringurinn') {
-      setVaktData(prev => ({ ...prev, dayHours: 6, eveningHours: 2 }));
+      setVaktData(prev => ({ ...prev, dayHours: 6, eveningHours: 2, projectName: 'Hringurinn' }));
       setSaleData(prev => ({ ...prev, project: 'Hringurinn' }));
     } else {
-      setVaktData(prev => ({ ...prev, dayHours: 4, eveningHours: 4 }));
+      setVaktData(prev => ({ ...prev, dayHours: 4, eveningHours: 4, projectName: 'Verið' }));
       setSaleData(prev => ({ ...prev, project: 'Verið' }));
     }
     setShowPopup(false);
@@ -90,7 +92,8 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
     if (vaktData.dayHours + vaktData.eveningHours > 0) {
       localStorage.setItem(`takk_hours_${vaktData.date}`, JSON.stringify({
         dayHours: vaktData.dayHours,
-        eveningHours: vaktData.eveningHours
+        eveningHours: vaktData.eveningHours,
+        projectName: vaktData.projectName
       }));
       setShowPopup(false);
     }
@@ -103,7 +106,9 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
       dayHours: vaktData.dayHours,
       eveningHours: vaktData.eveningHours,
       totalSales: totalSalesToday,
-      notes: vaktData.notes
+      notes: vaktData.notes,
+      projectName: vaktData.projectName,
+      userId: '' // Handled in App.tsx
     });
   };
 
@@ -115,7 +120,8 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
       date: vaktData.date,
       timestamp: new Date().toISOString(),
       amount: saleData.amount,
-      project: saleData.project
+      project: saleData.project,
+      userId: '' // Handled in App.tsx
     });
     setSaleData({ ...saleData, amount: 0 });
   };
@@ -287,7 +293,7 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
               </div>
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Athugasemdir vaktar</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team: {vaktData.projectName}</label>
               <textarea rows={4} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Hvernig var stemningin?" />
             </div>
           </div>
