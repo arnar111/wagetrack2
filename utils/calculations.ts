@@ -3,6 +3,7 @@ import { Shift, WageSummary, WageSettings, Sale } from '../types';
 /**
  * Calculates effective hours by deducting 0.125 hours (7.5 mins) 
  * for every 1 hour worked, effectively 1 hour break per 8 hours.
+ * Multiplier: 0.875
  */
 export const calculateEffectiveHours = (totalHours: number): number => {
   return Math.max(0, totalHours * 0.875);
@@ -22,6 +23,35 @@ export const calculateSalesBonus = (totalSales: number, totalHours: number): num
   return Math.max(0, bonus);
 };
 
+/**
+ * Groups sales and hours by project for deep-dive analytics.
+ * Standardizes project naming to catch both 'project' and 'projectName' fields.
+ */
+export const getProjectMetrics = (sales: Sale[], shifts: Shift[]) => {
+  const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number }> = {};
+
+  const getProjName = (p: string) => p === 'Hringurinn' || p === 'Verið' ? p : 'Other';
+
+  sales.forEach(s => {
+    const p = getProjName(s.project);
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
+    metrics[p].sales += s.amount;
+    metrics[p].count += 1;
+  });
+
+  shifts.forEach(s => {
+    const p = getProjName(s.projectName || 'Other');
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
+    const h = (s.dayHours || 0) + (s.eveningHours || 0);
+    metrics[p].hours += h;
+    metrics[p].effHours += calculateEffectiveHours(h);
+    // Fixed cost based on Day Rate for budgeting: 2724.88
+    metrics[p].cost += h * 2724.88; 
+  });
+
+  return metrics;
+};
+
 export const calculateWageSummary = (shifts: Shift[], sales: Sale[], settings: WageSettings): WageSummary => {
   let totalHours = 0;
   let dayHours = 0;
@@ -35,36 +65,26 @@ export const calculateWageSummary = (shifts: Shift[], sales: Sale[], settings: W
 
   const totalSales = sales.reduce((acc, s) => acc + s.amount, 0);
 
-  // 101 Dagvinna
   const dayEarnings = dayHours * settings.dayRate;
-  // 1026 Eftirvinna
   const eveningEarnings = eveningHours * settings.eveningRate;
-  // 1604 Bónus
   const bonus = calculateSalesBonus(totalSales, totalHours);
   
-  // Base for Orlof
   const subtotalForOrlof = dayEarnings + eveningEarnings + bonus;
-  // 901 Orlof (10.17%)
   const orlof = subtotalForOrlof * 0.1017;
-  
   const grossPay = subtotalForOrlof + orlof;
 
-  // Deductions
   const pensionFund = grossPay * 0.04;
   const taxableIncome = grossPay - pensionFund;
   const unionFee = grossPay * 0.007;
   
-  // Tax Steps 2025
   let calculatedTax = 0;
   let remainingIncome = taxableIncome;
 
-  // Step 1: 0 - 472,005 at 31.45%
   const step1Max = 472005;
   const step1Income = Math.min(remainingIncome, step1Max);
   calculatedTax += step1Income * 0.3145;
   remainingIncome -= step1Income;
 
-  // Step 2: 472,006 - 1,273,190 at 37.95%
   if (remainingIncome > 0) {
     const step2Max = 1273190 - step1Max;
     const step2Income = Math.min(remainingIncome, step2Max);
@@ -72,7 +92,6 @@ export const calculateWageSummary = (shifts: Shift[], sales: Sale[], settings: W
     remainingIncome -= step2Income;
   }
 
-  // Step 3: Over 1,273,190 at 46.25%
   if (remainingIncome > 0) {
     calculatedTax += remainingIncome * 0.4625;
   }

@@ -1,21 +1,20 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale, User } from "./types.ts";
 
 /**
- * Initializes the GoogleGenAI client using either environment variables
- * or the global window key injected by the build process.
+ * Initializes the GoogleGenAI client following @google/genai guidelines.
+ * Always obtain the API key exclusively from process.env.API_KEY.
+ * Use new GoogleGenAI({ apiKey: process.env.API_KEY }) syntax.
  */
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || (window as any)._GEMINI_KEY;
-  if (apiKey && apiKey !== 'undefined' && apiKey !== '' && !apiKey.includes('%VITE')) {
-    try {
-      return new GoogleGenAI({ apiKey });
-    } catch (error) {
-      console.error("❌ Error initializing GoogleGenAI client:", error);
-      return null;
-    }
+  try {
+    // Guidelines specify obtaining the key exclusively from process.env.API_KEY
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  } catch (error) {
+    console.error("❌ Error initializing GoogleGenAI client:", error);
+    return null;
   }
-  return null;
 };
 
 export interface SpeechResult {
