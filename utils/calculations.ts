@@ -1,15 +1,21 @@
-
 import { Shift, WageSummary, WageSettings, Sale } from '../types';
 
 /**
+ * Calculates effective hours by deducting 0.125 hours (7.5 mins) 
+ * for every 1 hour worked, effectively 1 hour break per 8 hours.
+ */
+export const calculateEffectiveHours = (totalHours: number): number => {
+  return Math.max(0, totalHours * 0.875);
+};
+
+/**
  * Calculates the sales bonus based on the Takk ehf formula:
- * 1. Calculate effective hours (Total hours - 0.125 hours break for every 1 hour worked)
+ * 1. Calculate effective hours (Total hours * 0.875)
  * 2. Threshold = Effective Hours * 636 ISK
  * 3. Bonus = Sales - Threshold (if sales > threshold)
  */
 export const calculateSalesBonus = (totalSales: number, totalHours: number): number => {
-  const breakDeduction = totalHours * 0.125;
-  const effectiveHours = Math.max(0, totalHours - breakDeduction);
+  const effectiveHours = calculateEffectiveHours(totalHours);
   const threshold = effectiveHours * 636;
   
   const bonus = totalSales - threshold;
