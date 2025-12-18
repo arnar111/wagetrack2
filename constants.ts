@@ -16,6 +16,7 @@ export const LOGO_URL = "./image.png";
 
 export const USERS: User[] = [
   { id: '1', name: 'Addi', staffId: '570' }
+  { id: '1', name: 'Pétur', staffId: '101' }
 ];
 
 export const PROJECTS = [
