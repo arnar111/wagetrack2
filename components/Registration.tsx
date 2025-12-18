@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shift, Sale, Goals } from '../types';
+import { Shift, Sale, Goals, User } from '../types';
 import { PROJECTS } from '../constants';
-import { Save, Clock, ShoppingBag, TrendingUp, Trophy, RefreshCcw, Edit3, Zap } from 'lucide-react';
+import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -12,9 +12,12 @@ interface RegistrationProps {
   editingShift: Shift | null;
   goals: Goals;
   onUpdateGoals: (g: Goals) => void;
+  userRole?: string;
 }
 
-const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, currentSales, shifts, editingShift, goals, onUpdateGoals }) => {
+const Registration: React.FC<RegistrationProps> = ({ 
+  onSaveShift, onSaveSale, currentSales, shifts, editingShift, goals, onUpdateGoals, userRole 
+}) => {
   const [now, setNow] = useState(new Date());
   const [showPopup, setShowPopup] = useState(false);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -23,6 +26,7 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
     dayHours: 0,
     eveningHours: 0,
     notes: '',
+    managerNotes: '',
     projectName: 'Other'
   });
 
@@ -38,6 +42,7 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
         dayHours: editingShift.dayHours,
         eveningHours: editingShift.eveningHours,
         notes: editingShift.notes,
+        managerNotes: (editingShift as any).managerNotes || '',
         projectName: editingShift.projectName || 'Other'
       });
       setShowPopup(false);
@@ -108,8 +113,9 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
       totalSales: totalSalesToday,
       notes: vaktData.notes,
       projectName: vaktData.projectName,
-      userId: '' // Handled in App.tsx
-    });
+      userId: '', // Handled in App.tsx
+      ...(userRole === 'manager' ? { managerNotes: vaktData.managerNotes } : {})
+    } as Shift);
   };
 
   const handleAddSale = (e: React.FormEvent) => {
@@ -292,9 +298,23 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
                 <p className="text-3xl font-black text-white">{vaktData.eveningHours}<span className="text-sm opacity-50 ml-1">h</span></p>
               </div>
             </div>
-            <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team: {vaktData.projectName}</label>
-              <textarea rows={4} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Hvernig var stemningin?" />
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Zap size={10} className="text-indigo-400" /> Team: {vaktData.projectName}
+                </label>
+                <textarea rows={2} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Einkaskýring starfsmanns..." />
+              </div>
+
+              {userRole === 'manager' && (
+                <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-300">
+                  <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest flex items-center gap-2">
+                    <BookOpen size={10} /> Manager Observations
+                  </label>
+                  <textarea rows={2} value={vaktData.managerNotes} onChange={e => setVaktData({...vaktData, managerNotes: e.target.value})} className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 p-4 rounded-2xl text-white text-xs outline-none focus:ring-2 focus:ring-[#d4af37] shadow-inner" placeholder="Team-wide observations or shift feedback..." />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-4 mt-10">

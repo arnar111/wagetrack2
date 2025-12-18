@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { collection, addDoc, deleteDoc, doc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase.ts';
 import { User } from '../types.ts';
-import { UserPlus, Users, Trash2, ShieldAlert, Briefcase, Users2 } from 'lucide-react';
+import { UserPlus, Users, Trash2, ShieldAlert, Briefcase, Users2, X, Check, Edit3 } from 'lucide-react';
 
 interface AdminProps {
   users: User[];
@@ -16,6 +16,7 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
   const [role, setRole] = useState<'agent' | 'manager'>('agent');
   const [team, setTeam] = useState<'Hringurinn' | 'Verið' | 'Other'>('Other');
   const [loading, setLoading] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +55,27 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
     }
   };
 
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, "users", editingUser.id);
+      await updateDoc(userRef, {
+        role: editingUser.role,
+        team: editingUser.team,
+        name: editingUser.name
+      });
+      setEditingUser(null);
+    } catch (err) {
+      console.error(err);
+      alert("Villa við að uppfæra notanda.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteUser = async (id: string, staffId: string) => {
     if (String(staffId).trim() === '570') {
       alert("Ekki hægt að eyða aðal admin!");
@@ -69,15 +91,68 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20 relative">
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="glass p-10 rounded-[40px] w-full max-w-md border-[#d4af37]/30 shadow-2xl">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black text-white italic tracking-tighter uppercase">Edit User Profile</h3>
+              <button onClick={() => setEditingUser(null)} className="text-slate-500 hover:text-white"><X /></button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Display Name</label>
+                <input 
+                  type="text" 
+                  value={editingUser.name} 
+                  onChange={e => setEditingUser({...editingUser, name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Account Role</label>
+                <select 
+                  value={editingUser.role} 
+                  onChange={e => setEditingUser({...editingUser, role: e.target.value as any})}
+                  className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-black uppercase outline-none"
+                >
+                  <option value="agent">Sales Agent</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Team Assignment</label>
+                <select 
+                  value={editingUser.team} 
+                  onChange={e => setEditingUser({...editingUser, team: e.target.value as any})}
+                  className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-black uppercase outline-none"
+                >
+                  <option value="Other">Other</option>
+                  <option value="Hringurinn">Hringurinn</option>
+                  <option value="Verið">Verið</option>
+                </select>
+              </div>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-5 bg-[#d4af37] text-slate-900 font-black uppercase text-xs tracking-widest rounded-[24px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                {loading ? "Uppfærir..." : "Save Profile Changes"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="glass rounded-[40px] p-8 md:p-10 border-indigo-500/20 shadow-2xl">
         <div className="flex items-center gap-4 mb-10 border-b border-white/5 pb-6">
           <div className="p-4 rounded-2xl bg-indigo-500/20 text-indigo-400">
             <UserPlus size={32} />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">User Management</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure Team Roles & Sorting</p>
+            <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">New Recruit</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure Initial Access & Team</p>
           </div>
         </div>
 
@@ -159,17 +234,21 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
           <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Active Directory</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-5 bg-white/2 rounded-3xl border border-white/5 hover:border-white/10 transition-all group">
+            <div 
+              key={u.id} 
+              onClick={() => setEditingUser(u)}
+              className="flex items-center justify-between p-5 bg-white/2 rounded-3xl border border-white/5 hover:border-[#d4af37]/30 transition-all group cursor-pointer"
+            >
               <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-lg ${u.role === 'manager' ? 'bg-amber-500' : 'gradient-bg'}`}>
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-lg ${u.role === 'manager' ? 'bg-[#d4af37] text-slate-900' : 'gradient-bg'}`}>
                   {u.name.charAt(0)}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-black text-white text-sm">{u.name}</p>
-                    {u.role === 'manager' && <span className="text-[8px] font-black bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full uppercase">MGR</span>}
+                    <p className="font-black text-white text-sm group-hover:text-[#d4af37] transition-colors">{u.name}</p>
+                    {u.role === 'manager' && <span className="text-[8px] font-black bg-[#d4af37]/20 text-[#d4af37] px-2 py-0.5 rounded-full uppercase">MGR</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-1">
                     <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">ID: {u.staffId}</p>
@@ -178,13 +257,16 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
                   </div>
                 </div>
               </div>
-              <button 
-                onClick={() => handleDeleteUser(u.id, u.staffId)}
-                className={`p-3 rounded-xl transition-all ${String(u.staffId).trim() === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
-                disabled={String(u.staffId).trim() === '570'}
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <Edit3 size={14} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteUser(u.id, u.staffId); }}
+                  className={`p-3 rounded-xl transition-all ${String(u.staffId).trim() === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
+                  disabled={String(u.staffId).trim() === '570'}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -193,7 +275,7 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
       <div className="p-6 bg-indigo-500/5 rounded-3xl border border-indigo-500/10 flex items-start gap-4">
         <ShieldAlert className="text-indigo-500 shrink-0" size={20} />
         <p className="text-[10px] font-bold text-indigo-500/80 uppercase leading-relaxed tracking-wider">
-          Warning: Deleting a manager account will restrict their dashboard access immediately. Admin (570) is immutable.
+          Warning: Deleting a manager account will restrict their dashboard access immediately. Admin (570) is immutable. Click any user to edit their profile.
         </p>
       </div>
     </div>

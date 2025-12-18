@@ -187,7 +187,7 @@ const App: React.FC = () => {
         </div>
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if(item.id !== 'register') setEditingShift(null); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${currentTab === item.id ? 'gradient-bg text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+            <button key={item.id} onClick={() => { setActiveTab(item.id); if(item.id !== 'register') setEditingShift(null); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${currentTab === item.id ? (item.id === 'manager_dash' ? 'bg-[#d4af37] text-slate-900 shadow-lg' : 'gradient-bg text-white shadow-lg shadow-indigo-500/30') : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
               <span className="shrink-0">{item.icon}</span>
               <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
             </button>
@@ -195,7 +195,7 @@ const App: React.FC = () => {
         </nav>
         <div className="p-4 border-t border-white/5 space-y-2">
           <div className="px-4 py-2 bg-indigo-500/10 rounded-xl mb-2">
-             <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{user.role}</p>
+             <p className={`text-[8px] font-black uppercase tracking-widest ${user.role === 'manager' ? 'text-[#d4af37]' : 'text-indigo-400'}`}>{user.role}</p>
              <p className="text-[10px] font-bold text-white truncate">{user.name}</p>
           </div>
           <button onClick={() => setUser(null)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
@@ -214,7 +214,7 @@ const App: React.FC = () => {
              <button onClick={triggerAiInsights} disabled={isLoadingInsights || shifts.length === 0} className="hidden sm:flex items-center gap-2 px-4 py-2 glass border-indigo-500/30 rounded-full text-[10px] font-black text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-30">
                <BrainCircuit size={14} /> {isLoadingInsights ? "Sæki..." : "AI Innsýn"}
              </button>
-             <div className="h-10 w-10 rounded-full gradient-bg flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20">{user.name.charAt(0)}</div>
+             <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20 ${user.role === 'manager' ? 'bg-[#d4af37] text-slate-900' : 'gradient-bg'}`}>{user.name.charAt(0)}</div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10 pb-32 md:pb-10">
@@ -223,7 +223,9 @@ const App: React.FC = () => {
               <ManagerDashboard 
                 allShifts={allShifts} 
                 allSales={allSales} 
-                allUsers={allUsers} 
+                allUsers={allUsers}
+                currentUser={user}
+                personalSummary={summary}
               />
             )}
             {currentTab === 'dashboard' && (
@@ -238,7 +240,7 @@ const App: React.FC = () => {
                 staffId={user.staffId} 
               />
             )}
-            {currentTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} />}
+            {currentTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} userRole={user.role} />}
             {currentTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {currentTab === 'speech' && <SpeechAssistant summary={summary} />}
             {currentTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
