@@ -1,4 +1,3 @@
-
 import { Shift, Sale, User } from '../types';
 
 export interface ProjectMomentum {
@@ -62,26 +61,28 @@ export const calculateTeamMetrics = (users: User[], shifts: Shift[], sales: Sale
     const totalHours = uShifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
     const effectiveHours = totalHours * 0.875;
     
-    // 636 ISK threshold
+    // 636 ISK threshold per effective hour
     const threshold = effectiveHours * 636;
     const achievement = threshold > 0 ? (totalSales / threshold) * 100 : 0;
     
-    // Real-Time Wage Estimate
+    // Real-Time Wage Estimate (Integrated)
     const dayEarnings = uShifts.reduce((acc, s) => acc + (s.dayHours * 2724.88), 0);
     const eveningEarnings = uShifts.reduce((acc, s) => acc + (s.eveningHours * 3768.47), 0);
     const bonus = Math.max(0, totalSales - threshold);
+    
+    // Using simple gross estimation for "Real-Time Wage" visualization
     const totalEarned = dayEarnings + eveningEarnings + bonus;
     const hourlyWage = totalHours > 0 ? totalEarned / totalHours : 0;
 
     return {
       name: u.name,
       staffId: u.staffId,
-      team: u.team,
+      team: u.team || 'Other',
       totalSales,
       totalHours,
       effectiveHours,
       achievement: Math.round(achievement),
-      bonus,
+      bonus: Math.round(bonus),
       hourlyWage: Math.round(hourlyWage)
     };
   }).sort((a, b) => b.achievement - a.achievement);
