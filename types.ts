@@ -14,6 +14,7 @@ export interface Shift {
   eveningHours: number; // 17:00 - 00:00
   totalSales: number;
   notes: string;
+  managerNotes?: string; // Team-wide observations
   projectName: string;
   userId: string;
 }

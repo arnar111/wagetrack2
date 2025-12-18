@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shift, Sale, Goals, User } from '../types';
+import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen } from 'lucide-react';
+// Added ShieldCheck to the imports from lucide-react
+import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -42,7 +43,7 @@ const Registration: React.FC<RegistrationProps> = ({
         dayHours: editingShift.dayHours,
         eveningHours: editingShift.eveningHours,
         notes: editingShift.notes,
-        managerNotes: (editingShift as any).managerNotes || '',
+        managerNotes: editingShift.managerNotes || '',
         projectName: editingShift.projectName || 'Other'
       });
       setShowPopup(false);
@@ -112,10 +113,10 @@ const Registration: React.FC<RegistrationProps> = ({
       eveningHours: vaktData.eveningHours,
       totalSales: totalSalesToday,
       notes: vaktData.notes,
+      managerNotes: vaktData.managerNotes,
       projectName: vaktData.projectName,
-      userId: '', // Handled in App.tsx
-      ...(userRole === 'manager' ? { managerNotes: vaktData.managerNotes } : {})
-    } as Shift);
+      userId: '' // Handled in App.tsx
+    });
   };
 
   const handleAddSale = (e: React.FormEvent) => {
@@ -135,7 +136,7 @@ const Registration: React.FC<RegistrationProps> = ({
   const formatISK = (val: number) => new Intl.NumberFormat('is-IS').format(Math.round(val));
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-20 relative">
+    <div className="space-y-6 max-w-6xl mx-auto pb-20 relative animate-in fade-in duration-500">
       {/* Hours Setup Popup */}
       {showPopup && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
@@ -187,7 +188,7 @@ const Registration: React.FC<RegistrationProps> = ({
         </div>
       )}
 
-      {/* Mælikvarðar efst */}
+      {/* Metrics Top Section */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div className="glass p-5 rounded-[32px] border-indigo-500/10">
           <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Sala dagsins</p>
@@ -208,7 +209,7 @@ const Registration: React.FC<RegistrationProps> = ({
         </div>
       </div>
 
-      {/* Markmiðsmælir */}
+      {/* Daily Goal Gauge */}
       <div className="glass p-6 rounded-[40px] border-white/5 relative overflow-hidden">
         <div className="flex justify-between items-end mb-4">
           <div className="flex-1">
@@ -244,7 +245,7 @@ const Registration: React.FC<RegistrationProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Sales Form */}
+        {/* Sales Registration Section */}
         <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between shadow-2xl relative">
           <div>
             <div className="flex items-center gap-3 mb-8">
@@ -268,7 +269,7 @@ const Registration: React.FC<RegistrationProps> = ({
             </form>
           </div>
           <div className="mt-10 space-y-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar border-t border-white/5 pt-6">
-            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Skráð í dag</p>
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Sölulisti dagsins</p>
             {todaySales.length > 0 ? [...todaySales].reverse().map(s => (
               <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-indigo-500/30 transition-all">
                 <div className="flex flex-col">
@@ -277,12 +278,17 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
                 <span className="font-black text-indigo-400 text-sm">{formatISK(s.amount)}</span>
               </div>
-            )) : <p className="text-center text-slate-700 text-xs py-10 font-bold italic">Engin sala skráð.</p>}
+            )) : <p className="text-center text-slate-700 text-xs py-10 font-bold italic">Engin sala skráð ennþá.</p>}
           </div>
         </div>
 
-        {/* Shift Management */}
-        <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between">
+        {/* Shift Summary & Manager Area */}
+        <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden">
+          {userRole === 'manager' && (
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <ShieldCheck size={100} className="text-[#d4af37]" />
+            </div>
+          )}
           <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-2xl bg-violet-500/10 text-violet-400"><Clock size={24} /></div>
@@ -302,23 +308,35 @@ const Registration: React.FC<RegistrationProps> = ({
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Zap size={10} className="text-indigo-400" /> Team: {vaktData.projectName}
+                  Teymi: {vaktData.projectName}
                 </label>
-                <textarea rows={2} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" placeholder="Einkaskýring starfsmanns..." />
+                <textarea 
+                  rows={2} 
+                  value={vaktData.notes} 
+                  onChange={e => setVaktData({...vaktData, notes: e.target.value})} 
+                  className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                  placeholder="Lýsing á vaktinni..." 
+                />
               </div>
 
               {userRole === 'manager' && (
                 <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-300">
                   <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest flex items-center gap-2">
-                    <BookOpen size={10} /> Manager Observations
+                    <BookOpen size={12} /> Stjórnanda Athugasemdir (Teymisyfirlit)
                   </label>
-                  <textarea rows={2} value={vaktData.managerNotes} onChange={e => setVaktData({...vaktData, managerNotes: e.target.value})} className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 p-4 rounded-2xl text-white text-xs outline-none focus:ring-2 focus:ring-[#d4af37] shadow-inner" placeholder="Team-wide observations or shift feedback..." />
+                  <textarea 
+                    rows={3} 
+                    value={vaktData.managerNotes} 
+                    onChange={e => setVaktData({...vaktData, managerNotes: e.target.value})} 
+                    className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 p-5 rounded-3xl text-[#d4af37] text-xs outline-none focus:ring-2 focus:ring-[#d4af37] shadow-inner font-medium placeholder:text-[#d4af37]/40" 
+                    placeholder="Skráðu t.d. mætingu teymis, sölustemningu eða áskoranir..." 
+                  />
                 </div>
               )}
             </div>
           </div>
           <div className="flex gap-4 mt-10">
-            <button onClick={() => setShowPopup(true)} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-[24px] text-slate-400 font-black text-xs uppercase tracking-widest transition-all border border-white/5">Breyta vinnutíma</button>
+            <button onClick={() => setShowPopup(true)} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-[24px] text-slate-400 font-black text-xs uppercase tracking-widest transition-all border border-white/5">Breyta Tíma</button>
             <button onClick={handleSaveShift} className="flex-1 py-5 gradient-bg rounded-[24px] text-white font-black text-xs uppercase tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95">Ljúka og Vista</button>
           </div>
         </div>
