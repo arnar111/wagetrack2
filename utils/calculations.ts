@@ -1,19 +1,19 @@
 import { Shift, WageSummary, WageSettings, Sale } from '../types';
 
 /**
- * Calculates effective hours by deducting 0.125 hours (7.5 mins) 
- * for every 1 hour worked, effectively 1 hour break per 8 hours.
- * Multiplier: 0.875
+ * Reiknar virka vinnustundir með því að draga frá 0.125 klst (7.5 mín) 
+ * fyrir hverja 1 klst unna. Þetta jafngildir 1 klst hvíld á 8 klst vakt.
+ * Margfaldari: 0.875
  */
 export const calculateEffectiveHours = (totalHours: number): number => {
   return Math.max(0, totalHours * 0.875);
 };
 
 /**
- * Calculates the sales bonus based on the Takk ehf formula:
- * 1. Calculate effective hours (Total hours * 0.875)
- * 2. Threshold = Effective Hours * 636 ISK
- * 3. Bonus = Sales - Threshold (if sales > threshold)
+ * Reiknar bónus (1604) samkvæmt formúlu Takk ehf:
+ * 1. Virkar stundir = Samtals stundir * 0.875
+ * 2. Viðmið (Threshold) = Virkar stundir * 636 ISK
+ * 3. Bónus = Sala - Viðmið (ef sala > viðmið)
  */
 export const calculateSalesBonus = (totalSales: number, totalHours: number): number => {
   const effectiveHours = calculateEffectiveHours(totalHours);
@@ -24,60 +24,42 @@ export const calculateSalesBonus = (totalSales: number, totalHours: number): num
 };
 
 /**
- * Calculates the team's weekly and monthly velocity.
- * Projected = (Total Sales / Days Elapsed) * Total Days in Period
+ * Reiknar framvindu og hraða liðsins miðað við markmið.
  */
-export const calculateVelocity = (currentSales: number, goal: number, period: 'weekly' | 'monthly'): { projected: number; velocityPercent: number } => {
+export const calculateVelocity = (currentSales: number, goal: number): { projected: number; pacePercent: number } => {
   const now = new Date();
-  let elapsed: number;
-  let total: number;
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  
+  const dailyPace = currentSales / dayOfMonth;
+  const projected = dailyPace * daysInMonth;
+  const pacePercent = goal > 0 ? (projected / goal) * 100 : 0;
 
-  if (period === 'weekly') {
-    elapsed = now.getDay() || 7; // Sunday as 7
-    total = 7;
-  } else {
-    elapsed = now.getDate();
-    total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  }
-
-  const projected = (currentSales / elapsed) * total;
-  const velocityPercent = goal > 0 ? (projected / goal) * 100 : 0;
-
-  return { projected, velocityPercent };
+  return { projected, pacePercent };
 };
 
 /**
- * Groups sales and hours by project for deep-dive analytics.
+ * Hópar sölu og vinnustundir eftir verkefnum (Projects).
  */
 export const getProjectMetrics = (sales: Sale[], shifts: Shift[]) => {
-  const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number; prevWeekSales: number }> = {};
+  const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number }> = {};
 
-  const getProjName = (p: string) => (p === 'Hringurinn' || p === 'Verið') ? p : 'Other';
-  
-  const now = new Date();
-  const lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const lastWeekEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const getProjName = (p: string) => (p === 'Hringurinn' || p === 'Verið') ? p : 'Annað';
 
   sales.forEach(s => {
     const p = getProjName(s.project);
-    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0, prevWeekSales: 0 };
-    
-    const saleDate = new Date(s.date);
-    if (saleDate >= lastWeekStart && saleDate < lastWeekEnd) {
-      metrics[p].prevWeekSales += s.amount;
-    }
-    
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
     metrics[p].sales += s.amount;
     metrics[p].count += 1;
   });
 
   shifts.forEach(s => {
-    const p = getProjName(s.projectName || 'Other');
-    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0, prevWeekSales: 0 };
+    const p = getProjName(s.projectName || 'Annað');
+    if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
     const h = (s.dayHours || 0) + (s.eveningHours || 0);
     metrics[p].hours += h;
     metrics[p].effHours += calculateEffectiveHours(h);
-    // Cost calculation based on fixed wage estimation (2724.88)
+    // Áætlaður launakostnaður (Dagvinna: 2724.88)
     metrics[p].cost += h * 2724.88; 
   });
 
