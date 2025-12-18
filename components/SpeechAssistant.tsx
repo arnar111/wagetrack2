@@ -19,9 +19,8 @@ export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
     setResult(null);
     
     try {
-      // NOTE: Removed personal sales context to ensure AI focuses on project-specific urgency
-      const context = ""; 
-      const res = await getSpeechAssistantResponse(mode, project, context);
+      // Fix: Removed incorrect 3rd argument 'context' to match getSpeechAssistantResponse signature
+      const res = await getSpeechAssistantResponse(mode, project);
       setResult(res);
     } catch (e: any) {
       console.error(e);
