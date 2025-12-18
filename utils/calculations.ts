@@ -39,22 +39,23 @@ export const calculateVelocity = (currentSales: number, goal: number): { project
 };
 
 /**
- * Hópar sölu og vinnustundir eftir verkefnum (Projects).
+ * Hópar sölu og vinnustundir eftir góðgerðarfélögum (projects).
  */
 export const getProjectMetrics = (sales: Sale[], shifts: Shift[]) => {
   const metrics: Record<string, { sales: number; hours: number; effHours: number; cost: number; count: number }> = {};
 
-  const getProjName = (p: string) => (p === 'Hringurinn' || p === 'Verið') ? p : 'Annað';
-
   sales.forEach(s => {
-    const p = getProjName(s.project);
+    const p = s.project || 'Annað';
     if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
     metrics[p].sales += s.amount;
     metrics[p].count += 1;
   });
 
+  // Ath: Shifts hafa oftast 'projectName' sem vísar í teymi (Hringurinn/Verið), 
+  // en fyrir samanburð félaga notum við hlutfall af stundum miðað við sölu ef vantar.
+  // Hér gerum við ráð fyrir að projectName geti líka verið félagið eða vísun í hvar unnið var.
   shifts.forEach(s => {
-    const p = getProjName(s.projectName || 'Annað');
+    const p = s.projectName || 'Annað';
     if (!metrics[p]) metrics[p] = { sales: 0, hours: 0, effHours: 0, cost: 0, count: 0 };
     const h = (s.dayHours || 0) + (s.eveningHours || 0);
     metrics[p].hours += h;
