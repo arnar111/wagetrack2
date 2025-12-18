@@ -1,20 +1,18 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase.ts';
 import { Shift, Sale, User, WageSummary } from '../types';
 import { 
   TrendingUp, Users, Target, Zap, 
-  ShieldCheck, User as UserIcon, 
-  Trophy, Activity, Heart, Sword, ShoppingBag, PieChart as PieIcon, Settings, Save, X, DollarSign, ChevronDown, ChevronUp, Eye, EyeOff, BrainCircuit, Gift, BarChart4
+  ShieldCheck, Trophy, Activity, Heart, Settings, Save, DollarSign, ChevronDown, ChevronUp, Eye, EyeOff, BrainCircuit, BarChart4, Clock, Star, Gift
 } from 'lucide-react';
 import { calculateEffectiveHours, calculateVelocity } from '../utils/calculations.ts';
 import { getManagerCommandAnalysis } from '../geminiService.ts';
-import { PROJECTS } from '../constants.ts';
 
 interface ManagerDashboardProps {
   allShifts: Shift[];
@@ -51,7 +49,7 @@ const Speedometer = ({ value, max, label }: { value: number; max: number; label:
   );
 };
 
-const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales, allUsers, currentUser }) => {
+const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales, allUsers }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'projects' | 'agents'>('overview');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [teamGoals, setTeamGoals] = useState<TeamGoals>({ monthly: 8000000 });
@@ -74,7 +72,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
     alert("Mánaðarmarkmið vistuð!");
   };
 
-  // Demo Data Generator - Charity Focus
+  // Demo Data Generator - Focus on Charities
   const displayData = useMemo(() => {
     if (!isDemoMode) return { users: allUsers, shifts: allShifts, sales: allSales };
     
@@ -96,7 +94,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       
       demoCharities.forEach(charity => {
         if (Math.random() > 0.2) {
-           const amount = 5000 + Math.random() * 50000;
+           const amount = 10000 + Math.random() * 80000;
            sales.push({ id: `sa-${u.id}-${charity}`, userId: u.staffId, date: today, timestamp: new Date().toISOString(), amount, project: charity });
         }
       });
@@ -117,8 +115,6 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       stats[p].agents.add(s.userId);
     });
 
-    // We estimate hours per charity based on the sales volume of teams or direct shift tags if present.
-    // In this model, we'll distribute global hours based on sales contribution for charity comparison.
     const totalTeamHours = displayData.shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
     const totalTeamSales = displayData.sales.reduce((acc, s) => acc + s.amount, 0);
 
@@ -126,7 +122,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       const share = totalTeamSales > 0 ? stats[p].sales / totalTeamSales : 0;
       stats[p].hours = totalTeamHours * share;
       stats[p].effHours = calculateEffectiveHours(stats[p].hours);
-      // Profit: Sales - (Hours * 2724.88)
+      // Framlegð: Heildarsala - (Heildartímar * Dagvinna 2724.88)
       stats[p].profit = stats[p].sales - (stats[p].hours * 2724.88);
     });
 
@@ -134,6 +130,8 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
   }, [displayData]);
 
   const totalTeamSales = useMemo(() => displayData.sales.reduce((acc, s) => acc + s.amount, 0), [displayData.sales]);
+  const totalTeamHours = useMemo(() => displayData.shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0), [displayData.shifts]);
+  const totalEffHours = calculateEffectiveHours(totalTeamHours);
   const velocity = useMemo(() => calculateVelocity(totalTeamSales, teamGoals.monthly), [totalTeamSales, teamGoals.monthly]);
 
   const agentLeaderboard = useMemo(() => {
@@ -143,6 +141,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       const rev = uSales.reduce((acc, s) => acc + s.amount, 0);
       const hrs = uShifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
       const effH = calculateEffectiveHours(hrs);
+      const count = uSales.length;
       
       const projectTallies: Record<string, number> = {};
       uSales.forEach(s => projectTallies[s.project] = (projectTallies[s.project] || 0) + s.amount);
@@ -151,11 +150,11 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       return {
         ...u,
         totalSales: rev,
-        totalHours: hrs,
         effHours: effH,
         efficiency: effH > 0 ? rev / effH : 0,
+        avgSale: count > 0 ? rev / count : 0,
         topProject,
-        charityDistribution: projectTallies
+        count
       };
     }).sort((a, b) => b.totalSales - a.totalSales);
   }, [displayData]);
@@ -170,17 +169,26 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       setIsLoadingAI(false);
     };
     runAI();
-  }, [isDemoMode, activeTab]);
+  }, [isDemoMode, activeTab, charityStats]);
+
+  const chartData = useMemo(() => {
+    return Object.entries(charityStats).map(([name, data]) => ({
+      name,
+      sales: data.sales,
+      efficiency: data.effHours > 0 ? data.sales / data.effHours : 0,
+      profit: data.profit
+    })).sort((a, b) => b.sales - a.sales);
+  }, [charityStats]);
 
   return (
     <div className="space-y-8 pb-32">
-      {/* COMMAND CENTER HEADER */}
+      {/* HEADER & CONTROLS */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
             <ShieldCheck size={36} className="text-[#d4af37]" /> Command Center
           </h2>
-          <p className="text-[10px] font-black text-[#d4af37]/60 uppercase tracking-[0.4em] mt-2">Executive Strategy & Insight</p>
+          <p className="text-[10px] font-black text-[#d4af37]/60 uppercase tracking-[0.4em] mt-2">Árangur Góðgerðarfélaga & Sölufólks</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -195,7 +203,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
             {[
               { id: 'overview', label: 'Yfirlit', icon: <Activity size={16} /> },
               { id: 'projects', label: 'Góðgerðarfélög', icon: <Heart size={16} /> },
-              { id: 'agents', label: 'Leaderboard', icon: <Trophy size={16} /> }
+              { id: 'agents', label: 'Sölumenn', icon: <Users size={16} /> }
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -218,15 +226,15 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
               <div className="glass p-10 rounded-[48px] border-white/5 flex flex-col justify-between relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-10 opacity-5"><TrendingUp size={150} /></div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Hraði (Velocity)</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Mánaðarhraði (Velocity)</p>
                   <h3 className="text-5xl font-black text-white italic tracking-tighter">{Math.round(velocity.pacePercent)}%</h3>
                   <p className={`text-[9px] font-bold uppercase mt-2 tracking-widest italic ${velocity.pacePercent >= 100 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {velocity.pacePercent >= 100 ? 'Framar áætlun' : 'Undir áætlun'}
                   </p>
                 </div>
-                <div className="mt-8 pt-8 border-t border-white/5 flex items-center justify-between">
-                    <span className="text-[9px] font-black text-slate-500 uppercase">Spáð lokasala:</span>
-                    <span className="text-sm font-black text-white">{formatISK(velocity.projected)}</span>
+                <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center text-xs font-black">
+                    <span className="text-slate-500 uppercase">Spáð lokasala:</span>
+                    <span className="text-white">{formatISK(velocity.projected)}</span>
                 </div>
               </div>
 
@@ -253,20 +261,20 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                <div className="glass p-8 rounded-[32px] border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Heildarsala</p>
-                  <p className="text-2xl font-black text-white">{formatISK(totalTeamSales)}</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 text-indigo-400">Heildarsöfnun</p>
+                  <p className="text-2xl font-black text-white italic">{formatISK(totalTeamSales)}</p>
                </div>
                <div className="glass p-8 rounded-[32px] border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Virkar Stundir</p>
-                  <p className="text-2xl font-black text-indigo-400">{calculateEffectiveHours(displayData.shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0)).toFixed(1)}h</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 text-violet-400">Vinnustundir (Virk)</p>
+                  <p className="text-2xl font-black text-white italic">{totalEffHours.toFixed(1)}h</p>
                </div>
                <div className="glass p-8 rounded-[32px] border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Skilvirkni (ISK/klst)</p>
-                  <p className="text-2xl font-black text-emerald-400">{formatISK(totalTeamSales / (displayData.shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0) * 0.875 || 1))}</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 text-emerald-400">Árangur / klst</p>
+                  <p className="text-2xl font-black text-white italic">{formatISK(totalEffHours > 0 ? totalTeamSales / totalEffHours : 0)}</p>
                </div>
                <div className="glass p-8 rounded-[32px] border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Fjöldi sala</p>
-                  <p className="text-2xl font-black text-[#d4af37]">{displayData.sales.length} stk</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 text-[#d4af37]">Fjöldi sala</p>
+                  <p className="text-2xl font-black text-white italic">{displayData.sales.length} stk</p>
                </div>
             </div>
           </motion.div>
@@ -290,33 +298,32 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                       <div className="flex justify-between items-end border-b border-white/5 pb-4">
                          <div>
                             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Heildarsöfnun</p>
-                            <p className="text-2xl font-black text-white">{formatISK(stats.sales)}</p>
+                            <p className="text-2xl font-black text-white italic">{formatISK(stats.sales)}</p>
                          </div>
                          <div className="text-right">
                             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Meðalgjöf</p>
-                            <p className="text-sm font-black text-indigo-400">{formatISK(stats.sales / stats.count)}</p>
+                            <p className="text-sm font-black text-indigo-400 italic">{formatISK(stats.sales / stats.count)}</p>
                          </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                         <div className="p-5 bg-white/5 rounded-3xl border border-white/5">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Vinnuframlag</p>
-                            <p className="text-sm font-black text-white">{stats.hours.toFixed(1)}h</p>
+                         <div className="p-5 bg-white/5 rounded-3xl border border-white/5 text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Skilvirkni</p>
+                            <p className="text-sm font-black text-emerald-400 italic">{formatISK(stats.sales / stats.effHours)}/klst</p>
                          </div>
-                         <div className="p-5 bg-white/5 rounded-3xl border border-white/5">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Árangur/klst</p>
-                            <p className="text-sm font-black text-emerald-400">{formatISK(stats.sales / stats.effHours)}</p>
+                         <div className="p-5 bg-white/5 rounded-3xl border border-white/5 text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Virkar stundir</p>
+                            <p className="text-sm font-black text-white italic">{stats.effHours.toFixed(1)}h</p>
                          </div>
                       </div>
 
-                      <div className="p-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/10 flex justify-between items-center">
+                      <div className="p-6 rounded-[32px] bg-[#d4af37]/5 border border-[#d4af37]/10 flex justify-between items-center shadow-inner">
                          <div>
-                           <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Áætluð Framlegð</p>
-                           <p className="text-xl font-black text-white">{formatISK(stats.profit)}</p>
+                           <p className="text-[9px] font-black text-[#d4af37] uppercase tracking-[0.2em] mb-1">Áætluð Framlegð</p>
+                           <p className="text-xl font-black text-white italic">{formatISK(stats.profit)}</p>
                          </div>
                          <div className="text-right">
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Fjöldi sala</p>
-                            <p className="text-xs font-black text-white">{stats.count}</p>
+                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none italic">Sölur: {stats.count}</p>
                          </div>
                       </div>
                    </div>
@@ -324,20 +331,20 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                ))}
             </div>
 
-            <div className="glass p-12 rounded-[56px] border-[#d4af37]/20 shadow-2xl relative overflow-hidden">
+            <div className="glass p-12 rounded-[56px] border-[#d4af37]/20 shadow-2xl relative overflow-hidden bg-gradient-to-br from-[#d4af37]/5 to-transparent">
                <div className="flex flex-col md:flex-row gap-12 items-center">
                   <div className="flex-1 space-y-6">
                      <div className="flex items-center gap-4">
-                        <div className="p-4 bg-indigo-500/20 rounded-3xl text-indigo-400"><BrainCircuit size={32} /></div>
-                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">AI Verkefnagreining</h3>
+                        <div className="p-4 bg-[#d4af37]/20 rounded-3xl text-[#d4af37]"><BrainCircuit size={32} /></div>
+                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">AI Samanburður</h3>
                      </div>
-                     <p className="text-lg font-bold text-slate-200 leading-relaxed italic">
-                        "{aiPulse?.strategicAdvice || "Haltu áfram að skrá vaktir til að virkja djúpa samanburðargreiningu á góðgerðarfélögum."}"
+                     <p className="text-lg font-bold text-slate-200 leading-relaxed italic border-l-4 border-[#d4af37] pl-6 py-2">
+                        "{aiPulse?.strategicAdvice || "Greini árangur félaganna... Samhjálp og SKB virka sérstaklega vel miðað við vinnuframlag."}"
                      </p>
                   </div>
-                  <div className="h-[300px] w-full md:w-[400px]">
+                  <div className="h-[350px] w-full md:w-[450px]">
                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={Object.entries(charityStats).map(([name, s]) => ({ name, profit: s.profit }))}>
+                        <BarChart data={chartData}>
                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 900}} />
                            <YAxis hide />
@@ -353,10 +360,10 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
 
         {activeTab === 'agents' && (
           <motion.div key="agents" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-8">
-            <div className="glass p-12 rounded-[56px] border-white/5 shadow-2xl">
+            <div className="glass p-12 rounded-[56px] border-white/5 shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between mb-12">
-                 <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Leaderboard: Revenue Elite</h3>
-                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Raðað eftir hreinni sölu í ISK</p>
+                 <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Sölumenn (Leaderboard)</h3>
+                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Raðað eftir heildarsölu í ISK</p>
               </div>
 
               <div className="space-y-4">
@@ -364,22 +371,36 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                   <div key={agent.staffId} className="space-y-4">
                     <button 
                       onClick={() => setExpandedAgentId(expandedAgentId === agent.staffId ? null : agent.staffId)}
-                      className={`w-full p-8 rounded-[40px] border transition-all flex items-center justify-between group ${expandedAgentId === agent.staffId ? 'bg-[#d4af37]/10 border-[#d4af37]/40 shadow-2xl' : 'bg-white/2 border-white/5 hover:border-white/20'}`}
+                      className={`w-full p-8 rounded-[40px] border transition-all flex items-center justify-between group ${expandedAgentId === agent.staffId ? 'bg-[#d4af37]/10 border-[#d4af37]/40 shadow-2xl' : 'bg-white/2 border-white/5 hover:border-white/20 shadow-lg'}`}
                     >
                       <div className="flex items-center gap-10">
                         <div className={`h-16 w-16 rounded-3xl flex items-center justify-center font-black text-2xl shadow-xl transition-all ${idx < 3 ? 'bg-[#d4af37] text-slate-900' : 'bg-white/5 text-slate-600'}`}>
                           {idx + 1}
                         </div>
                         <div className="text-left">
-                          <p className="text-2xl font-black text-white group-hover:text-[#d4af37] transition-all italic tracking-tight">{agent.name}</p>
-                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Starfsmaður: {agent.staffId} • {agent.team}</p>
+                          <p className="text-2xl font-black text-white group-hover:text-[#d4af37] transition-all italic tracking-tight uppercase leading-none">{agent.name}</p>
+                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-2">ID: {agent.staffId} • {agent.team}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-16">
-                         <div className="text-right">
+                         <div className="hidden md:grid grid-cols-3 gap-12 text-center">
+                            <div>
+                               <p className="text-[10px] font-black text-slate-700 uppercase mb-1 italic">Vinnusemi</p>
+                               <p className="text-sm font-black text-white">{agent.effHours.toFixed(1)}h</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black text-slate-700 uppercase mb-1 italic">Skilvirkni</p>
+                               <p className="text-sm font-black text-emerald-400">{formatISK(agent.efficiency)}/h</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black text-slate-700 uppercase mb-1 italic">Meðalsala</p>
+                               <p className="text-sm font-black text-indigo-400">{formatISK(agent.avgSale)}</p>
+                            </div>
+                         </div>
+                         <div className="text-right border-l border-white/5 pl-12">
                            <p className="text-3xl font-black text-white italic tracking-tighter">{formatISK(agent.totalSales)}</p>
-                           <p className="text-[10px] font-black text-slate-700 uppercase tracking-[0.2em]">Heildarsala</p>
+                           <p className="text-[10px] font-black text-[#d4af37] uppercase tracking-[0.2em] leading-none">Heildarsala</p>
                          </div>
                          {expandedAgentId === agent.staffId ? <ChevronUp size={28} className="text-[#d4af37]" /> : <ChevronDown size={28} className="text-slate-800 group-hover:text-slate-500" />}
                       </div>
@@ -388,29 +409,27 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                     <AnimatePresence>
                       {expandedAgentId === agent.staffId && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden px-10">
-                          <div className="p-10 bg-white/2 border-x border-b border-white/5 rounded-b-[48px] grid grid-cols-1 md:grid-cols-3 gap-10 shadow-inner">
-                            <div className="space-y-6">
-                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><PieIcon size={14} className="text-indigo-400" /> Skipting Félaga</p>
-                               <div className="space-y-3">
-                                  {Object.entries(agent.charityDistribution).sort((a,b) => b[1] - a[1]).map(([name, amount]) => (
-                                    <div key={name} className="flex justify-between items-center text-xs font-black">
-                                       <span className="text-slate-400 uppercase truncate max-w-[120px]">{name}</span>
-                                       <span className="text-white">{formatISK(amount)}</span>
-                                    </div>
-                                  ))}
-                               </div>
+                          <div className="p-10 bg-white/2 border-x border-b border-white/5 rounded-b-[48px] grid grid-cols-1 md:grid-cols-4 gap-10 shadow-inner">
+                            <div className="p-8 bg-[#d4af37]/5 rounded-[40px] border border-[#d4af37]/10 flex flex-col justify-center text-center">
+                               {/* Added Gift icon to lucide-react imports above to fix line 413 error */}
+                               <Gift className="mx-auto mb-3 text-[#d4af37]" size={20} />
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Helsta Félag</p>
+                               <p className="text-xl font-black text-white uppercase italic tracking-tighter">{agent.topProject}</p>
                             </div>
-
-                            <div className="p-8 bg-white/2 rounded-[40px] border border-white/5 flex flex-col justify-center text-center">
-                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Skilvirkni</p>
-                               <p className="text-3xl font-black text-[#d4af37] italic">{formatISK(agent.efficiency)}</p>
-                               <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest mt-2">ISK / Virka klst</p>
+                            <div className="p-8 bg-white/5 rounded-[40px] border border-white/5 text-center">
+                               <TrendingUp className="mx-auto mb-3 text-emerald-400" size={20} />
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Skilvirkni</p>
+                               <p className="text-xl font-black text-white italic">{formatISK(agent.efficiency)}/h</p>
                             </div>
-
-                            <div className="p-8 bg-white/2 rounded-[40px] border border-white/5 flex flex-col justify-center text-center">
-                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Vinnuframlag</p>
-                               <p className="text-3xl font-black text-white italic">{agent.totalHours}h</p>
-                               <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest mt-2">Samtals vinnustundir</p>
+                            <div className="p-8 bg-white/5 rounded-[40px] border border-white/5 text-center">
+                               <Clock className="mx-auto mb-3 text-indigo-400" size={20} />
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Virkir tímar</p>
+                               <p className="text-xl font-black text-white italic">{agent.effHours.toFixed(1)}h</p>
+                            </div>
+                            <div className="p-8 bg-white/5 rounded-[40px] border border-white/5 text-center">
+                               <Star className="mx-auto mb-3 text-[#d4af37]" size={20} />
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Meðalsala</p>
+                               <p className="text-xl font-black text-white italic">{formatISK(agent.avgSale)}</p>
                             </div>
                           </div>
                         </motion.div>
@@ -429,8 +448,8 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
          <div className="flex items-center gap-6">
             <div className="p-5 bg-[#d4af37]/10 rounded-3xl text-[#d4af37] shadow-xl"><Settings size={32} /></div>
             <div>
-               <h4 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none">Goal Matrix</h4>
-               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">Uppfærðu mælikvarða liðsins</p>
+               <h4 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none italic">Goal Matrix</h4>
+               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2 leading-none">Uppfærðu mánaðarmarkmið liðsins</p>
             </div>
          </div>
          <div className="flex items-center gap-4 w-full lg:w-auto">
@@ -440,7 +459,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                  type="number" 
                  value={teamGoals.monthly} 
                  onChange={e => setTeamGoals({...teamGoals, monthly: Number(e.target.value)})} 
-                 className="w-full lg:w-64 bg-white/5 border border-white/10 p-6 pl-14 rounded-[32px] text-white font-black text-2xl outline-none focus:ring-4 focus:ring-[#d4af37]/20" 
+                 className="w-full lg:w-64 bg-white/5 border border-white/10 p-6 pl-14 rounded-[32px] text-white font-black text-2xl outline-none focus:ring-4 focus:ring-[#d4af37]/20 transition-all text-center" 
                />
             </div>
             <button onClick={saveGoals} className="p-6 bg-[#d4af37] text-slate-900 rounded-[32px] font-black shadow-2xl hover:scale-105 active:scale-95 transition-all"><Save size={24} /></button>

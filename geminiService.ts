@@ -1,17 +1,16 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Shift, WageSummary, Goals, Sale, User } from "./types.ts";
+import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 /**
- * Sækir AI client þegar þess er þörf.
- * Samkvæmt reglum er process.env.API_KEY notaður beint.
+ * Sækir AI client. 
+ * Nota process.env.API_KEY sem er staðall í þessu umhverfi.
  */
 const getAiClient = () => {
-  if (!process.env.API_KEY) {
-    console.warn("⚠️ Enginn API lykill fannst í process.env.API_KEY");
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined" || apiKey.includes("%VITE")) {
     return null;
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 export interface SpeechResult {
@@ -21,7 +20,7 @@ export interface SpeechResult {
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Bíður eftir tengingu við gervigreind...";
+  if (!ai) return "Bíður eftir AI lykli...";
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     const response = await ai.models.generateContent({
@@ -30,7 +29,7 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
     });
     return response.text?.replace(/[*#]/g, '') || "Greining fannst ekki.";
   } catch (e) {
-    return "Villa við að tengjast AI.";
+    return "Villa við tengingu.";
   }
 };
 
@@ -65,9 +64,9 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 
 export const getManagerCommandAnalysis = async (charityData: any) => {
   const ai = getAiClient();
-  if (!ai) return { strategicAdvice: "Bíður eftir AI tengingu...", topProject: "Óvíst" };
+  if (!ai) return { strategicAdvice: "Bíður eftir AI lykli...", topProject: "Óvíst" };
   try {
-    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. Segðu stjórnanda hvaða félag er með hæsta framlegð (margin) og hvar er hægt að nýta mannskapinn betur. Svaraðu á ÍSLENSKU. JSON only. Keys: topProject (Nafn félags), strategicAdvice (Greining og ráðlegging).`;
+    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. Segðu stjórnanda hvaða félag er með hæsta framlegð (hagnað eftir launakostnað) og hvar er hægt að nýta mannskapinn betur. Svaraðu á ÍSLENSKU. JSON only. Keys: topProject (Nafn félags), strategicAdvice (Greining og ráðlegging).`;
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: [{ parts: [{ text: prompt }] }],
@@ -85,29 +84,28 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
     });
     return JSON.parse(response.text || "{}");
   } catch (e) {
-    return { strategicAdvice: "Villa kom upp við greiningu.", topProject: "Gagna vantar" };
+    return { strategicAdvice: "Villa hjá AI.", topProject: "Gagna vantar" };
   }
 };
 
-// Fix: Added missing export getAIProjectComparison for ProjectInsights component
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Bíður eftir AI tengingu...";
+  if (!ai) return "Bíður eftir AI lykli...";
   try {
     const prompt = `Berðu saman árangur þessara verkefna út frá sölugögnum: ${JSON.stringify(sales.slice(0, 100))}. Segðu hverjir eru að standa sig best. Svaraðu á ÍSLENSKU á hvetjandi hátt. Notaðu hreinan texta (engin tákn eins og * eða #). Max 4 línur.`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
-    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk í augnablikinu.";
+    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
   } catch (e) {
-    return "Villa við gagnaúrvinnslu hjá AI.";
+    return "Villa við gagnaúrvinnslu.";
   }
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
   const ai = getAiClient();
-  if (!ai) return "Ég er ekki með tengingu (vantar API lykil).";
+  if (!ai) return "Engin AI tenging (vantar lykil).";
   try {
     const systemInstruction = `Þú ert Addi, aðstoðarmaður hjá TAKK. Svaraðu alltaf á ÍSLENSKU á hvetjandi hátt. Notaðu hreinan texta.`;
     const response = await ai.models.generateContent({
@@ -115,14 +113,14 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
       contents: history,
       config: { systemInstruction }
     });
-    return response.text?.replace(/[*#]/g, '') || "Fyrirgefðu, ég gat ekki svarað.";
+    return response.text?.replace(/[*#]/g, '') || "Gat ekki svarað.";
   } catch (e) {
-    return "Tengingarvilla hjá Adda!";
+    return "Tengingarvilla hjá Adda.";
   }
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
-  const fallback = { text: "AI tenging vantar.", sources: [] };
+  const fallback = { text: "AI lykill vantar.", sources: [] };
   const ai = getAiClient();
   if (!ai) return fallback;
   try {
