@@ -4,7 +4,7 @@ import { Shift, WageSummary } from "./types.ts";
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     
     const response = await ai.models.generateContent({
@@ -26,7 +26,7 @@ export interface SpeechResult {
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string): Promise<SpeechResult> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     const hasTools = mode === 'search';
     
     const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK (sölufyrirtæki).
