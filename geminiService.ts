@@ -2,7 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { Shift, WageSummary } from "./types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
   const prompt = `Greindu: Vaktir: ${JSON.stringify(shifts)}, Klst: ${summary.totalHours}, Sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, hreinum texta, max 3 stuttar línur. Engin tákn eins og * eða #.`;

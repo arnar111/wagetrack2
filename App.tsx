@@ -11,10 +11,11 @@ import {
   LogOut,
   Sparkle,
   Mic2,
-  PieChart
+  PieChart,
+  ShieldCheck
 } from 'lucide-react';
 import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
-import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants.ts';
+import { DEFAULT_WAGE_SETTINGS, LOGO_URL, USERS as INITIAL_USERS } from './constants.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
 import { getWageInsights } from './geminiService.ts';
 import Dashboard from './components/Dashboard.tsx';
@@ -24,10 +25,11 @@ import Payslip from './components/Payslip.tsx';
 import Login from './components/Login.tsx';
 import SpeechAssistant from './components/SpeechAssistant.tsx';
 import ProjectInsights from './components/ProjectInsights.tsx';
+import Admin from './components/Admin.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'speech' | 'settings' | 'insights'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'speech' | 'settings' | 'insights' | 'admin'>('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
@@ -37,6 +39,16 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1200);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
+  
+  // Notendalisti sem hægt er að breyta
+  const [allUsers, setAllUsers] = useState<User[]>(() => {
+    const savedUsers = localStorage.getItem('takk_users_v1');
+    return savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('takk_users_v1', JSON.stringify(allUsers));
+  }, [allUsers]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -107,7 +119,9 @@ const App: React.FC = () => {
     setIsLoadingInsights(false);
   };
 
-  if (!user) return <Login onLogin={setUser} />;
+  if (!user) return <Login onLogin={setUser} users={allUsers} />;
+
+  const isAdmin = user.staffId === '570';
 
   const navItems = [
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
@@ -117,6 +131,7 @@ const App: React.FC = () => {
     { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
     { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
+    ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' }] : []),
   ];
 
   return (
@@ -222,6 +237,7 @@ const App: React.FC = () => {
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
             {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={handleEditShift} />}
             {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={setWageSettings} />}
+            {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
             {activeTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
                 <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar</h3>

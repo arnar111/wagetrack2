@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { USERS, LOGO_URL } from '../constants';
-import { User } from '../types';
+import { LOGO_URL } from '../constants.ts';
+import { User } from '../types.ts';
 import { Lock } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
+  users: User[];
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
   const [val, setVal] = useState('');
   const [error, setError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -18,7 +19,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setVal(input);
     
     if (input.length === 3) {
-      const user = USERS.find(u => u.staffId === input);
+      const user = users.find(u => u.staffId === input);
       if (user) {
         onLogin(user);
       } else {
