@@ -14,12 +14,19 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || staffId.length !== 3) return;
+    const cleanId = staffId.trim();
+    if (!name || cleanId.length !== 3) return;
+
+    // Athugum hvort ID sé þegar til
+    if (users.find(u => String(u.staffId) === cleanId)) {
+      alert("Þetta númer er þegar í notkun!");
+      return;
+    }
 
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
-      name,
-      staffId
+      name: name.trim(),
+      staffId: cleanId // Vistað sem hreinn strengur
     };
 
     onUpdateUsers([...users, newUser]);
@@ -28,13 +35,14 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
   };
 
   const handleDeleteUser = (id: string) => {
-    // Ekki leyfa að eyða admin sjálfum (570) til að forðast lock-out
     const userToDelete = users.find(u => u.id === id);
     if (userToDelete?.staffId === '570') {
       alert("Ekki hægt að eyða aðal admin!");
       return;
     }
-    onUpdateUsers(users.filter(u => u.id !== id));
+    if (confirm(`Ertu viss um að þú viljir eyða ${userToDelete?.name}?`)) {
+      onUpdateUsers(users.filter(u => u.id !== id));
+    }
   };
 
   return (
@@ -66,6 +74,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Staff ID (3 tölur)</label>
             <input 
               type="text" 
+              inputMode="numeric"
               maxLength={3}
               value={staffId} 
               onChange={e => setStaffId(e.target.value.replace(/\D/g, ''))}
@@ -105,8 +114,8 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
               </div>
               <button 
                 onClick={() => handleDeleteUser(u.id)}
-                className={`p-3 rounded-xl transition-all ${u.staffId === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
-                title={u.staffId === '570' ? "Ekki hægt að eyða admin" : "Eyða notanda"}
+                className={`p-3 rounded-xl transition-all ${String(u.staffId) === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
+                disabled={String(u.staffId) === '570'}
               >
                 <Trash2 size={18} />
               </button>
@@ -118,7 +127,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
       <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/10 flex items-start gap-4">
         <ShieldAlert className="text-amber-500 shrink-0" size={20} />
         <p className="text-[10px] font-bold text-amber-500/80 uppercase leading-relaxed tracking-wider">
-          Aðvörun: Þú ert í admin ham. Gættu þess að eyða ekki notendum nema öruggt sé að þeir eigi ekki óvistaðar upplýsingar. Kerfið vistar notendur í vafranum þínum.
+          Aðvörun: Kerfið vistar notendur í vafranum. Ef þú hreinsar "Browser Cache" munu nýir notendur hverfa.
         </p>
       </div>
     </div>

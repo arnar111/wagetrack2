@@ -15,15 +15,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Fjarlægjum allt nema tölustafi og takmörkum við 3
     const input = e.target.value.replace(/\D/g, '').slice(0, 3);
     setVal(input);
     
     if (input.length === 3) {
-      const user = users.find(u => u.staffId === input);
-      if (user) {
-        onLogin(user);
+      // Öruggur samanburður: Breytum báðum í strengi og hreinsum stafabil
+      const foundUser = users.find(u => 
+        String(u.staffId).trim() === String(input).trim()
+      );
+
+      if (foundUser) {
+        onLogin(foundUser);
       } else {
         setError(true);
+        // Hristum og hreinsum eftir smá bið
         setTimeout(() => {
           setVal('');
           setError(false);
@@ -33,7 +39,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
   };
 
   useEffect(() => {
-    inputRef.current?.focus();
+    // Reynum að setja focus, en forðumst að trufla lyklaborð á símum ef það veldur veseni
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -48,29 +58,45 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
               (e.target as HTMLImageElement).style.display = 'none';
               const parent = (e.target as HTMLImageElement).parentElement;
               if (parent && !parent.querySelector('.logo-fallback')) {
-                parent.innerHTML += '<span class="logo-fallback text-6xl font-black italic tracking-tighter text-white">TAKK</span>';
+                const span = document.createElement('span');
+                span.className = 'logo-fallback text-6xl font-black italic tracking-tighter text-white';
+                span.innerText = 'TAKK';
+                parent.appendChild(span);
               }
             }}
           />
         </div>
         
-        <div className={`glass w-full rounded-[40px] p-12 flex flex-col items-center transition-all ${error ? 'border-rose-500 animate-shake shadow-lg shadow-rose-500/20' : ''}`}>
-          <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-8">Starfsmannanúmer (3 tölustafir)</label>
+        <div className={`glass w-full rounded-[40px] p-10 md:p-12 flex flex-col items-center transition-all duration-300 ${error ? 'border-rose-500 shadow-lg shadow-rose-500/20 translate-x-1' : 'border-white/10'}`}>
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-8 text-center">
+            Sláðu inn starfsmannanúmer
+          </label>
           
-          <input 
-            ref={inputRef}
-            type="text"
-            inputMode="numeric"
-            value={val}
-            onChange={handleChange}
-            placeholder="000"
-            className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-center text-4xl font-black tracking-[0.5em] text-white outline-none focus:ring-4 focus:ring-indigo-500/50 transition-all placeholder:text-slate-800"
-          />
+          <div className="relative w-full">
+            <input 
+              ref={inputRef}
+              type="text"
+              pattern="[0-9]*"
+              inputMode="numeric"
+              autoComplete="off"
+              value={val}
+              onChange={handleChange}
+              placeholder="000"
+              className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-center text-5xl font-black tracking-[0.4em] text-white outline-none focus:ring-4 focus:ring-indigo-500/50 transition-all placeholder:text-slate-900"
+            />
+          </div>
           
-          <p className="mt-8 text-slate-500 text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest">
-            <Lock size={12} /> Örugg innskráning
-          </p>
+          <div className="mt-10 flex flex-col items-center gap-2">
+            <p className="text-slate-500 text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest">
+              <Lock size={12} /> Örugg innskráning
+            </p>
+            {error && <p className="text-rose-400 text-[9px] font-black uppercase tracking-widest animate-pulse">Rangt númer</p>}
+          </div>
         </div>
+        
+        <p className="mt-8 text-slate-700 text-[9px] font-bold uppercase tracking-[0.3em]">
+          WageTrack Pro v1.2
+        </p>
       </div>
     </div>
   );

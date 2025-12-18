@@ -1,23 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
-import { Shift, WageSummary } from "./types"; // Removed .ts extension for better compatibility
 
-// --- FIX 1: Use import.meta.env.VITE_GEMINI_API_KEY ---
-const getAiClient = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("API Key is missing! Check Netlify Environment Variables.");
-    throw new Error("vantar API lykil");
-  }
-  return new GoogleGenAI({ apiKey });
-};
+import { GoogleGenAI } from "@google/genai";
+import { Shift, WageSummary } from "./types.ts";
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
   try {
-    const ai = getAiClient(); // Use the safe client creator
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp", // Updated to a stable model name
+      model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
     
@@ -35,8 +26,7 @@ export interface SpeechResult {
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string): Promise<SpeechResult> => {
   try {
-    // --- FIX 2: Use the safe client creator here too ---
-    const ai = getAiClient();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const hasTools = mode === 'search';
     
     const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK (sölufyrirtæki).
@@ -57,7 +47,7 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
       : `Finndu og draslaðu saman helstu sölupunktum og upplýsingum um ${project} verkefnið.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp", // Updated model
+      model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: userPrompt }] }],
       config: { 
         systemInstruction,
