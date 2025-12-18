@@ -1,13 +1,19 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale, User } from "./types.ts";
 
 /**
- * Initializes the GoogleGenAI client exclusively using the API_KEY from the environment.
+ * Initializes the GoogleGenAI client using either environment variables
+ * or the global window key injected by the build process.
  */
 const getAiClient = () => {
-  if (process.env.API_KEY) {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY || (window as any)._GEMINI_KEY;
+  if (apiKey && apiKey !== 'undefined' && apiKey !== '' && !apiKey.includes('%VITE')) {
+    try {
+      return new GoogleGenAI({ apiKey });
+    } catch (error) {
+      console.error("❌ Error initializing GoogleGenAI client:", error);
+      return null;
+    }
   }
   return null;
 };
@@ -59,6 +65,34 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
     return JSON.parse(response.text || JSON.stringify(fallback));
   } catch (e) {
     return fallback;
+  }
+};
+
+export const getManagerCommandAnalysis = async (teamData: any) => {
+  const ai = getAiClient();
+  if (!ai) return { topProject: "Vantar tengingu", efficiencyLeader: "N/A", strategicAdvice: "Vinsamlegast athugaðu API stillingar." };
+  try {
+    const prompt = `Analyze team metrics for a non-profit fundraising agency (TAKK): ${JSON.stringify(teamData)}. Provide a strategic overview in ICELANDIC. JSON only. Keys: topProject (Project name), efficiencyLeader (Agent name), strategicAdvice (Longer tip).`;
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            topProject: { type: Type.STRING },
+            efficiencyLeader: { type: Type.STRING },
+            strategicAdvice: { type: Type.STRING }
+          },
+          required: ["topProject", "efficiencyLeader", "strategicAdvice"]
+        }
+      }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    console.error("Manager analysis failed:", e);
+    return { topProject: "Gagna vantar", efficiencyLeader: "Óvíst", strategicAdvice: "Villa kom upp við greiningu gagna." };
   }
 };
 
