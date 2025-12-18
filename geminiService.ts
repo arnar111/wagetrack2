@@ -1,9 +1,10 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 /**
  * Sækir AI client. 
- * Nota process.env.API_KEY sem er staðall í þessu umhverfi.
+ * Samkvæmt kerfisreglum er lykillinn sóttur EXCLUSIVELY úr process.env.API_KEY.
  */
 const getAiClient = () => {
   const apiKey = process.env.API_KEY;
@@ -20,7 +21,7 @@ export interface SpeechResult {
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Bíður eftir AI lykli...";
+  if (!ai) return "Bíður eftir AI tengingu...";
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     const response = await ai.models.generateContent({
@@ -33,40 +34,19 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
   }
 };
 
-export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
-  const fallback = { projectedEarnings: 0, trend: "stable", smartAdvice: "Skráðu vaktir til að virkja greiningu.", motivationalQuote: "Gangi þér vel!" };
-  const ai = getAiClient();
-  if (!ai) return fallback;
-  try {
-    const prompt = `Analyze sales trends for a fundraising employee. Current Sales: ${summary.totalSales}. Goal: ${goals.monthly}. Predict trajectory. Provide advice in ICELANDIC. JSON only.`;
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            projectedEarnings: { type: Type.NUMBER },
-            trend: { type: Type.STRING },
-            smartAdvice: { type: Type.STRING },
-            motivationalQuote: { type: Type.STRING }
-          },
-          required: ["projectedEarnings", "trend", "smartAdvice", "motivationalQuote"]
-        }
-      }
-    });
-    return JSON.parse(response.text || JSON.stringify(fallback));
-  } catch (e) {
-    return fallback;
-  }
-};
-
+/**
+ * Greining fyrir stjórnendur á árangri góðgerðarfélaga.
+ * Gemini ber saman hagnað (sala - launakostnaður) og skilvirkni.
+ */
 export const getManagerCommandAnalysis = async (charityData: any) => {
   const ai = getAiClient();
   if (!ai) return { strategicAdvice: "Bíður eftir AI lykli...", topProject: "Óvíst" };
   try {
-    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. Segðu stjórnanda hvaða félag er með hæsta framlegð (hagnað eftir launakostnað) og hvar er hægt að nýta mannskapinn betur. Svaraðu á ÍSLENSKU. JSON only. Keys: topProject (Nafn félags), strategicAdvice (Greining og ráðlegging).`;
+    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. 
+    Skoðaðu hagnað (profit), meðalgjöf og skilvirkni (isk_per_hour).
+    Segðu stjórnanda hvaða félag er með hæsta hagnaðinn eftir launakostnað (2724.88 ISK/klst) og hvar er hægt að nýta mannskapinn betur. 
+    Svaraðu á ÍSLENSKU. JSON only. Keys: topProject (Nafn félags), strategicAdvice (Greining og ráðlegging).`;
+
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: [{ parts: [{ text: prompt }] }],
@@ -84,22 +64,7 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
     });
     return JSON.parse(response.text || "{}");
   } catch (e) {
-    return { strategicAdvice: "Villa hjá AI.", topProject: "Gagna vantar" };
-  }
-};
-
-export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
-  const ai = getAiClient();
-  if (!ai) return "Bíður eftir AI lykli...";
-  try {
-    const prompt = `Berðu saman árangur þessara verkefna út frá sölugögnum: ${JSON.stringify(sales.slice(0, 100))}. Segðu hverjir eru að standa sig best. Svaraðu á ÍSLENSKU á hvetjandi hátt. Notaðu hreinan texta (engin tákn eins og * eða #). Max 4 línur.`;
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: prompt }] }]
-    });
-    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
-  } catch (e) {
-    return "Villa við gagnaúrvinnslu.";
+    return { strategicAdvice: "AI greining tókst ekki í augnablikinu.", topProject: "Gagna vantar" };
   }
 };
 
@@ -145,5 +110,50 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     return { text: response.text?.replace(/[*#\-_>]/g, '').trim() || fallback.text, sources };
   } catch (e) {
     return fallback;
+  }
+};
+
+// Fix: Added missing export for Dashboard smart analysis
+export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
+  const ai = getAiClient();
+  if (!ai) return { smartAdvice: "Bíður eftir AI...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
+  try {
+    const prompt = `Greindu árangur starfsmanns hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Markmið: ${JSON.stringify(goals)}, Heildarsala: ${summary.totalSales}. Svaraðu í JSON formi á ÍSLENSKU. Keys: smartAdvice (stutt ráð), trend ('up' eða 'down'), motivationalQuote (stutt tilvitnun), projectedEarnings (tala).`;
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            smartAdvice: { type: Type.STRING },
+            trend: { type: Type.STRING },
+            motivationalQuote: { type: Type.STRING },
+            projectedEarnings: { type: Type.NUMBER }
+          },
+          required: ["smartAdvice", "trend", "motivationalQuote", "projectedEarnings"]
+        }
+      }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
+  }
+};
+
+// Fix: Added missing export for ProjectInsights AI comparison
+export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
+  const ai = getAiClient();
+  if (!ai) return "Bíður eftir AI...";
+  try {
+    const prompt = `Berðu saman sölu á mismunandi verkefnum: ${JSON.stringify(sales)}. Svaraðu á ÍSLENSKU með stuttri greiningu (max 3 línur). Slepptu öllum sérstökum táknum eins og * eða #.`;
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }]
+    });
+    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
+  } catch (e) {
+    return "Villa við að sækja AI samanburð.";
   }
 };
