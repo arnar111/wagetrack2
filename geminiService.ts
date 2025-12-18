@@ -74,3 +74,30 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     throw new Error("Tenging rofnaði eða villa kom upp í API kalli.");
   }
 };
+
+export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const systemInstruction = `Þú ert Addi, vinalegur og klár gervigreindar-aðstoðarmaður fyrir starfsmenn TAKK. 
+    Appið heitir WageTrack Pro. 
+    Verkefni þitt er að hjálpa notendum að skilja hvernig appið virkar, útskýra launaútreikninga (dagvinna, eftirvinna, skattar, persónuafsláttur) og hvetja þá í sölunni.
+    
+    REGLUR:
+    1. Svaraðu ALLTAF á ÍSLENSKU.
+    2. Vertu hvetjandi, stuttorður og vinalegur.
+    3. Ekki nota markdown tákn eins og # eða *. Notaðu hreinan texta.
+    4. Ef notandi spyr um eitthvað sem appið gerir ekki, útskýrðu það kurteislega.
+    5. Þú veist að TAKK vinnur með mörgum mannúðarfélögum eins og Samhjálp, Krabbameinsfélaginu o.fl.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: history,
+      config: { systemInstruction }
+    });
+
+    return response.text?.replace(/[*#]/g, '') || "Fyrirgefðu, ég átti erfitt með að svara þessu. Geturðu spurt aftur?";
+  } catch (e) {
+    console.error("Chat with Addi error:", e);
+    return "Tengingarvilla! Ég kemst ekki í sambandi við heilann minn í bili.";
+  }
+};

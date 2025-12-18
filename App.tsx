@@ -39,6 +39,7 @@ import Login from './components/Login.tsx';
 import SpeechAssistant from './components/SpeechAssistant.tsx';
 import ProjectInsights from './components/ProjectInsights.tsx';
 import Admin from './components/Admin.tsx';
+import Chatbot from './components/Chatbot.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -302,6 +303,9 @@ const App: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Floating AI Chatbot Addi */}
+      <Chatbot />
     </div>
   );
 };
