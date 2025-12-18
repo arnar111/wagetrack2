@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { Shift, WageSummary } from "./types";
+import { Shift, WageSummary } from "./types.ts";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -9,11 +9,14 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: { thinkingConfig: { thinkingBudget: 0 } }
     });
     return response.text?.replace(/[*#]/g, '') || "Engin greining.";
-  } catch (e) { return "Villa við greiningu."; }
+  } catch (e) { 
+    console.error("Wage insights error:", e);
+    return "Villa við greiningu."; 
+  }
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string) => {
@@ -45,9 +48,20 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `${context ? `Samhengi: ${context}\n` : ''}${prompt}`,
-      config: { systemInstruction, tools, thinkingConfig: { thinkingBudget: 0 } }
+      contents: [{ parts: [{ text: `${context ? `Samhengi: ${context}\n` : ''}${prompt}` }] }],
+      config: { 
+        systemInstruction, 
+        ...(tools.length > 0 ? { tools } : {}),
+        thinkingConfig: { thinkingBudget: 0 } 
+      }
     });
-    return response.text?.replace(/[*#\-_>]/g, '').trim() || "Fann ekki svar.";
-  } catch (e) { return "Villa kom upp."; }
+    
+    const text = response.text;
+    if (!text) return "Fann ekki svar frá AI.";
+    
+    return text.replace(/[*#\-_>]/g, '').trim();
+  } catch (e) { 
+    console.error("Speech assistant error:", e);
+    return "Villa kom upp við að sækja ræðu. Reyndu aftur síðar."; 
+  }
 };
