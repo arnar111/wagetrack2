@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Shift } from '../types';
 import { Save, Calendar, Clock, DollarSign, Tag } from 'lucide-react';
@@ -8,6 +7,7 @@ interface ShiftFormProps {
 }
 
 const ShiftForm: React.FC<ShiftFormProps> = ({ onSave }) => {
+  // Fix: Widened the type of 'type' to allow comparisons with other shift types like 'Eftirvinna' in handleSubmit
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
@@ -15,15 +15,32 @@ const ShiftForm: React.FC<ShiftFormProps> = ({ onSave }) => {
     hourlyRate: 3500,
     breakMinutes: 30,
     isHoliday: false,
-    type: 'Dagur' as const,
+    type: 'Dagur' as 'Dagur' | 'Eftirvinna' | 'Næturvinna' | 'Helgarvinna',
     notes: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Calculate duration in decimal hours
+    const [sH, sM] = formData.startTime.split(':').map(Number);
+    const [eH, eM] = formData.endTime.split(':').map(Number);
+    let duration = (eH + eM / 60) - (sH + sM / 60);
+    if (duration < 0) duration += 24; // Handle overnight shifts
+    duration -= (formData.breakMinutes / 60);
+
+    // Map the internal form type to the Shift interface's day/evening buckets
+    const dayHours = formData.type === 'Dagur' ? Math.max(0, duration) : 0;
+    const eveningHours = formData.type === 'Eftirvinna' ? Math.max(0, duration) : 0;
+
+    // Fix: Ensure the object passed to onSave matches the Shift interface
     onSave({
-      ...formData,
       id: Math.random().toString(36).substr(2, 9),
+      date: formData.date,
+      dayHours: dayHours,
+      eveningHours: eveningHours,
+      totalSales: 0, // In this flow, sales are often calculated separately or added later
+      notes: formData.notes
     });
   };
 

@@ -15,7 +15,9 @@ export const calculateWageSummary = (shifts: Shift[], sales: Sale[], settings: W
   const taxableIncome = grossPay - pensionFund;
   const unionFee = grossPay * settings.unionRate;
   
-  let tax = (taxableIncome * settings.taxRate) - settings.personalAllowance;
+  // Apply personal allowance based on usage percentage (0-100%)
+  const effectiveAllowance = settings.personalAllowance * (settings.allowanceUsage || 0);
+  let tax = (taxableIncome * settings.taxRate) - effectiveAllowance;
   if (tax < 0) tax = 0;
 
   const netPay = grossPay - pensionFund - unionFee - tax;

@@ -17,6 +17,7 @@ export interface Shift {
 export interface Sale {
   id: string;
   date: string;
+  timestamp: string; // ISO string with time
   amount: number;
   project: string;
 }
@@ -38,6 +39,7 @@ export interface WageSettings {
   unionRate: number;
   taxRate: number;
   personalAllowance: number;
+  allowanceUsage: number; // 0 to 1 (0% to 100%)
 }
 
 export interface Goals {

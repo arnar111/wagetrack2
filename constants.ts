@@ -8,10 +8,11 @@ export const DEFAULT_WAGE_SETTINGS: WageSettings = {
   unionRate: 0.007,
   taxRate: 0.3145,
   personalAllowance: 64171,
+  allowanceUsage: 1.0, // Default 100%
 };
 
-// More reliable logo URL or fallback logic
-export const LOGO_URL = "https://images.squarespace-cdn.com/content/v1/5f8d9753c153b478d3885141/1612450543666-88F9X9F9C0N7E6X6Y0M6/TAKK_LOGO_BLACK.png";
+// Notum myndina sem notandinn hlóð upp
+export const LOGO_URL = "./image.png";
 
 export const USERS: User[] = [
   { id: '1', name: 'Addi', staffId: '570' }

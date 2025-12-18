@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Sale } from '../types';
+import { PROJECTS } from '../constants';
 import { ShoppingBag, Save, Calendar, FileText } from 'lucide-react';
 
 interface SaleFormProps {
@@ -11,16 +12,17 @@ const SaleForm: React.FC<SaleFormProps> = ({ onSave }) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: 0,
-    description: ''
+    project: PROJECTS[0]
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Fix: Providing all required properties for the Sale interface, including 'project'
     onSave({
       ...formData,
       id: Math.random().toString(36).substr(2, 9)
     });
-    setFormData({ ...formData, amount: 0, description: '' });
+    setFormData({ ...formData, amount: 0 });
   };
 
   return (
@@ -62,15 +64,17 @@ const SaleForm: React.FC<SaleFormProps> = ({ onSave }) => {
 
         <div>
           <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-2">
-            <FileText size={14} /> Lýsing (valfrjálst)
+            <FileText size={14} /> Verkefni
           </label>
-          <input 
-            type="text"
-            value={formData.description}
-            onChange={e => setFormData({...formData, description: e.target.value})}
-            placeholder="Dæmi: Topp sala dagsins"
-            className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-          />
+          <select 
+            value={formData.project}
+            onChange={e => setFormData({...formData, project: e.target.value})}
+            className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold appearance-none cursor-pointer"
+          >
+            {PROJECTS.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
 
         <button 

@@ -2,16 +2,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
-  PlusCircle, 
   History, 
   Settings, 
   BrainCircuit,
-  ShoppingBag,
   FileText,
   Menu,
   X,
   LogOut,
-  Sparkle
+  Sparkle,
+  Mic2,
+  PieChart
 } from 'lucide-react';
 import { Shift, WageSummary, User, Sale, Goals } from './types';
 import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants';
@@ -22,45 +22,77 @@ import Registration from './components/Registration';
 import ShiftList from './components/ShiftList';
 import Payslip from './components/Payslip';
 import Login from './components/Login';
+import SpeechAssistant from './components/SpeechAssistant';
+import ProjectInsights from './components/ProjectInsights';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'speech' | 'settings' | 'insights'>('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [goals, setGoals] = useState<Goals>({ daily: 150000, monthly: 3000000 });
+  // Uppfært: Ný sjálfgefin markmið
+  const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Sidebar byrjar opinn á stórum skjám (> 1200px) annars lokaður
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1200);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [logoError, setLogoError] = useState(false);
+
+  // Fylgjast með gluggastærð til að loka/opna hliðarstiku sjálfkrafa
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1200) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (user) {
-      const savedData = localStorage.getItem(`takk_data_v2_${user.staffId}`);
+      // Uppfært í v12 til að tryggja nýju markmiðin sem default
+      const savedData = localStorage.getItem(`takk_data_v12_${user.staffId}`);
       if (savedData) {
         const parsed = JSON.parse(savedData);
         setShifts(parsed.shifts || []);
         setSales(parsed.sales || []);
         if (parsed.goals) setGoals(parsed.goals);
-      } else {
-        setShifts([]);
-        setSales([]);
-        setGoals({ daily: 150000, monthly: 3000000 });
+        if (parsed.wageSettings) setWageSettings(parsed.wageSettings);
       }
     }
   }, [user]);
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem(`takk_data_v2_${user.staffId}`, JSON.stringify({ shifts, sales, goals }));
+      localStorage.setItem(`takk_data_v12_${user.staffId}`, JSON.stringify({ shifts, sales, goals, wageSettings }));
     }
-  }, [shifts, sales, goals, user]);
+  }, [shifts, sales, goals, user, wageSettings]);
 
   const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
 
   const handleSaveShift = (newShift: Shift) => {
-    setShifts(prev => [newShift, ...prev]);
+    if (editingShift) {
+      setShifts(prev => prev.map(s => s.id === editingShift.id ? newShift : s));
+      setEditingShift(null);
+    } else {
+      const exists = shifts.find(s => s.date === newShift.date);
+      if (exists) {
+        setShifts(prev => prev.map(s => s.date === newShift.date ? newShift : s));
+      } else {
+        setShifts(prev => [newShift, ...prev]);
+      }
+    }
     setActiveTab('dashboard');
+  };
+
+  const handleEditShift = (shift: Shift) => {
+    setEditingShift(shift);
+    setActiveTab('register');
   };
 
   const handleSaveSale = (newSale: Sale) => {
@@ -84,98 +116,141 @@ const App: React.FC = () => {
   const navItems = [
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
     { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
+    { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
+    { id: 'speech', icon: <Mic2 size={20} />, label: 'Ræðuhjálp' },
     { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
     { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
   ];
 
   return (
-    <div className="min-h-screen flex bg-[#020617] text-slate-100 overflow-hidden font-sans">
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} glass border-r border-white/5 transition-all duration-500 flex flex-col z-50`}>
-        <div className="p-8 flex flex-col items-center border-b border-white/5">
-          <img 
-            src={LOGO_URL} 
-            alt="TAKK" 
-            className={`transition-all duration-500 invert brightness-0 ${isSidebarOpen ? 'h-16' : 'h-8'}`} 
-            onError={(e) => { (e.target as any).style.display='none'; }}
-          />
-          {isSidebarOpen && (
-            <div className="text-center mt-4">
-              <h1 className="text-lg font-black tracking-tighter text-white uppercase italic">LaunaApp Takk</h1>
-              <p className="text-[10px] text-indigo-400 font-bold tracking-[0.3em] mt-1 uppercase">Halló {user.name}!</p>
-            </div>
-          )}
+    <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
+      
+      {/* Skjár-dimming þegar sidebar er opinn á litlum skjám */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] animate-in fade-in duration-300" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hann er nu annaðhvort alveg sýnilegur eða alveg falinn */}
+      <aside 
+        className={`
+          fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full'}
+        `}
+      >
+        <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center overflow-hidden">
+          <div className="flex flex-col items-center">
+            {!logoError ? (
+              <img 
+                src={LOGO_URL} 
+                alt="TAKK" 
+                className="h-24 w-auto invert brightness-[2] mb-3" 
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <span className="text-3xl font-black italic tracking-tighter text-white mb-2">TAKK</span>
+            )}
+            <h1 className="text-[10px] font-black tracking-[0.3em] text-indigo-400 uppercase italic">LaunaApp Takk</h1>
+          </div>
         </div>
 
-        <nav className="flex-1 mt-8 px-4 space-y-3">
+        <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
+              onClick={() => { 
+                setActiveTab(item.id as any); 
+                if(item.id !== 'register') setEditingShift(null);
+                setIsSidebarOpen(false); // Loka alltaf eftit val til öryggis
+              }}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${
-                activeTab === item.id ? 'gradient-bg text-white shadow-xl shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/5'
+                activeTab === item.id 
+                  ? 'gradient-bg text-white shadow-lg shadow-indigo-500/30' 
+                  : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
               }`}
             >
               <span className="shrink-0">{item.icon}</span>
-              {isSidebarOpen && <span className="font-bold text-sm">{item.label}</span>}
+              <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="p-4 space-y-2">
-          <button onClick={() => setUser(null)} className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
-            <LogOut size={20} />
-            {isSidebarOpen && <span className="font-bold text-sm">Skrá út</span>}
+        <div className="p-4 border-t border-white/5 space-y-2">
+          <button onClick={() => setUser(null)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
+            <LogOut size={20} className="shrink-0" />
+            <span className="font-bold text-xs uppercase tracking-wider">Skrá út</span>
           </button>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center p-3 rounded-xl text-slate-600 hover:bg-white/5">
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          <button 
+            onClick={() => setIsSidebarOpen(false)} 
+            className="w-full flex items-center justify-center p-3 rounded-xl text-slate-700 hover:bg-white/10"
+          >
+            <X size={24} />
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-6 md:p-12">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-white tracking-tight uppercase">
+      {/* Main Container - Engin vinstri-fylling (padding) því sidebar er alltaf "fixed overlay" núna */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#01040f] relative">
+        
+        {/* Header */}
+        <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all group"
+            >
+              <Menu size={20} className="group-active:scale-90 transition-transform" />
+            </button>
+            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">
               {navItems.find(n => n.id === activeTab)?.label}
             </h2>
-            <p className="text-slate-500 font-medium mt-2 flex items-center gap-2">
-              Uppfært: {new Date().toLocaleTimeString('is-IS')}
-              <span className="h-1 w-1 rounded-full bg-indigo-500 animate-ping" />
-            </p>
           </div>
-          <div className="flex items-center gap-4">
-             <button onClick={triggerAiInsights} disabled={isLoadingInsights || shifts.length === 0} className="flex items-center gap-2 px-6 py-3 glass border-white/10 rounded-full text-sm font-bold text-indigo-400 hover:bg-indigo-500/5 transition-all disabled:opacity-30">
-               <BrainCircuit size={18} />
-               {isLoadingInsights ? "Greini..." : "AI Innsýn"}
+          
+          <div className="flex items-center gap-3">
+             <button 
+              onClick={triggerAiInsights} 
+              disabled={isLoadingInsights || shifts.length === 0} 
+              className="hidden sm:flex items-center gap-2 px-4 py-2 glass border-indigo-500/30 rounded-full text-[10px] font-black text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-30"
+             >
+               <BrainCircuit size={14} />
+               {isLoadingInsights ? "Sæki..." : "AI Innsýn"}
              </button>
-             <div className="h-12 w-12 rounded-full gradient-bg flex items-center justify-center text-white font-black text-lg shadow-xl shadow-indigo-500/40">{user.name.charAt(0)}</div>
+             <div className="h-10 w-10 rounded-full gradient-bg flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20">
+               {user.name.charAt(0)}
+             </div>
           </div>
         </header>
 
-        <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700">
-          {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={setGoals} />}
-          {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} />}
-          {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} />}
-          {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} />}
-          {activeTab === 'settings' && (
-            <div className="glass rounded-[40px] p-10 max-w-2xl border-white/10">
-              <h3 className="text-2xl font-black mb-8 text-indigo-400">Kerfisstillingar</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Dagvinna (ISK/klst)</label>
-                  <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none" />
+        {/* View Content */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10">
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={setGoals} sales={sales} />}
+            {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={setGoals} />}
+            {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
+            {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
+            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={handleEditShift} />}
+            {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={setWageSettings} />}
+            {activeTab === 'settings' && (
+              <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
+                <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center md:text-left">Dagvinna (ISK/klst)</label>
+                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center md:text-left">Eftirvinna (ISK/klst)</label>
+                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Eftirvinna (ISK/klst)</label>
-                  <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none" />
-                </div>
-                {/* Other existing tax settings could go here */}
               </div>
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
