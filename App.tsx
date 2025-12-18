@@ -210,7 +210,7 @@ const App: React.FC = () => {
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
             {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
-            {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
+            {activeTab === 'payslip' && <Payslip shifts={shifts} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
             {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
             {activeTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">

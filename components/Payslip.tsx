@@ -1,112 +1,293 @@
 
-import React from 'react';
-import { WageSummary, WageSettings } from '../types';
-import { FileText, Printer, Download, Percent } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { WageSummary, WageSettings, Shift } from '../types';
+import { FileText, Printer, Download, Wallet, TrendingDown, Clock, Percent, ShieldCheck } from 'lucide-react';
 
 interface PayslipProps {
+  shifts: Shift[];
   summary: WageSummary;
   settings: WageSettings;
   userName: string;
   onUpdateSettings: (s: WageSettings) => void;
 }
 
-const Payslip: React.FC<PayslipProps> = ({ summary, settings, userName, onUpdateSettings }) => {
+const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, onUpdateSettings }) => {
   const formatISK = (val: number) => {
-    return new Intl.NumberFormat('is-IS', { style: 'currency', currency: 'ISK', maximumFractionDigits: 0 }).format(val);
+    return new Intl.NumberFormat('is-IS', { 
+      style: 'currency', 
+      currency: 'ISK', 
+      maximumFractionDigits: 0 
+    }).format(val);
   };
 
   const currentMonth = new Date().toLocaleDateString('is-IS', { month: 'long', year: 'numeric' });
 
+  // Detailed Payroll Calculations for Takk ehf
+  const payroll = useMemo(() => {
+    const dayRate = 2724.88;
+    const eveningRate = 3768.47;
+    const orlofRate = 0.1017;
+    const pensionRate = 0.04;
+    const unionRate = 0.007;
+
+    const totalDayHours = shifts.reduce((acc, s) => acc + s.dayHours, 0);
+    const totalEveningHours = shifts.reduce((acc, s) => acc + s.eveningHours, 0);
+
+    const dayEarnings = totalDayHours * dayRate;
+    const eveningEarnings = totalEveningHours * eveningRate;
+    const baseSubtotal = dayEarnings + eveningEarnings;
+    const orlof = baseSubtotal * orlofRate;
+    const totalGross = baseSubtotal + orlof;
+
+    const pensionFund = totalGross * pensionRate;
+    const unionFee = totalGross * unionRate;
+    const taxableIncome = totalGross - pensionFund;
+
+    // Tax Steps 2025
+    let calculatedTax = 0;
+    let remainingIncome = taxableIncome;
+
+    // Step 1: 0 - 472,005 at 31.45%
+    const step1Max = 472005;
+    const step1Income = Math.min(remainingIncome, step1Max);
+    calculatedTax += step1Income * 0.3145;
+    remainingIncome -= step1Income;
+
+    // Step 2: 472,006 - 1,273,190 at 37.95%
+    if (remainingIncome > 0) {
+      const step2Max = 1273190 - step1Max;
+      const step2Income = Math.min(remainingIncome, step2Max);
+      calculatedTax += step2Income * 0.3795;
+      remainingIncome -= step2Income;
+    }
+
+    // Step 3: Over 1,273,190 at 46.25%
+    if (remainingIncome > 0) {
+      calculatedTax += remainingIncome * 0.4625;
+    }
+
+    const personalAllowance = settings.personalAllowance * (settings.allowanceUsage || 0);
+    const finalTax = Math.max(0, calculatedTax - personalAllowance);
+    const totalDeductions = pensionFund + unionFee + finalTax;
+    const netPay = totalGross - totalDeductions;
+
+    return {
+      dayHours: totalDayHours,
+      eveningHours: totalEveningHours,
+      dayEarnings,
+      eveningEarnings,
+      orlof,
+      totalGross,
+      pensionFund,
+      unionFee,
+      finalTax,
+      totalDeductions,
+      netPay,
+      allowanceUsed: personalAllowance
+    };
+  }, [shifts, settings.personalAllowance, settings.allowanceUsage]);
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20">
-      <div className="flex justify-between items-center px-4">
-        <h3 className="text-xl font-black text-white flex items-center gap-2 uppercase tracking-tight">
-          <FileText className="text-indigo-400" /> Launaseðill
-        </h3>
-        <div className="flex gap-2">
-          <button className="p-2 glass rounded-lg text-slate-400 hover:text-white transition-all"><Printer size={18} /></button>
-          <button className="p-2 glass rounded-lg text-slate-400 hover:text-white transition-all"><Download size={18} /></button>
+    <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700">
+      {/* Header Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-4">
+        <div>
+          <h3 className="text-2xl font-black text-white flex items-center gap-3 uppercase italic tracking-tighter">
+            <FileText className="text-indigo-400" size={28} /> 
+            Launaseðill <span className="text-indigo-500/50 not-italic ml-2">#2025-{Math.floor(Math.random() * 9000) + 1000}</span>
+          </h3>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Takk ehf. • Opinber launagreiðsla</p>
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 glass rounded-2xl text-xs font-black text-slate-400 hover:text-white hover:bg-white/10 transition-all border-white/5 uppercase tracking-widest">
+            <Printer size={16} /> Prenta
+          </button>
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 gradient-bg rounded-2xl text-xs font-black text-white shadow-xl shadow-indigo-500/20 hover:scale-105 transition-all uppercase tracking-widest">
+            <Download size={16} /> Sækja PDF
+          </button>
         </div>
       </div>
 
-      <div className="glass rounded-[40px] p-10 space-y-8 border-white/10 overflow-hidden relative shadow-2xl">
-        <div className="absolute top-0 left-0 w-full h-2 gradient-bg" />
+      <div className="glass rounded-[48px] border-white/10 overflow-hidden relative shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
+        {/* Top Decorative Bar */}
+        <div className="h-2 w-full bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600" />
         
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-4xl font-black text-white italic tracking-tighter">TAKK</h2>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">WageTrack Pro System</p>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-400 font-bold uppercase text-[9px] tracking-widest mb-1">Tímabil</p>
-            <p className="text-white font-black capitalize text-lg">{currentMonth}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-8 border-y border-white/5 py-8">
-          <div>
-            <p className="text-slate-500 font-bold uppercase text-[9px] tracking-widest mb-2">Starfsmaður</p>
-            <p className="text-xl font-black text-white">{userName}</p>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">ID: {Math.random().toString(10).slice(2,7)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-500 font-bold uppercase text-[9px] tracking-widest mb-2">Heildarvinnustundir</p>
-            <p className="text-2xl font-black text-white tracking-tighter">{summary.totalHours.toFixed(1)} <span className="text-xs">klst</span></p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex justify-between text-sm font-bold">
-            <span className="text-slate-400 uppercase text-[10px] tracking-widest">Heildarlaun (Brúttó)</span>
-            <span className="text-white">{formatISK(summary.grossPay)}</span>
-          </div>
-          <div className="flex justify-between text-sm font-bold">
-            <span className="text-slate-400 uppercase text-[10px] tracking-widest">Lífeyrissjóður (4%)</span>
-            <span className="text-rose-400">-{formatISK(summary.pensionFund)}</span>
-          </div>
-          <div className="flex justify-between text-sm font-bold">
-            <span className="text-slate-400 uppercase text-[10px] tracking-widest">Stéttarfélagsgjald (0.7%)</span>
-            <span className="text-rose-400">-{formatISK(summary.unionFee)}</span>
-          </div>
-          <div className="flex justify-between text-sm font-bold items-center">
-            <span className="text-slate-400 uppercase text-[10px] tracking-widest">
-              Skattur ({Math.round((settings.allowanceUsage || 0) * 100)}% afsláttur)
-            </span>
-            <span className="text-rose-400">-{formatISK(summary.tax)}</span>
-          </div>
-          
-          <div className="pt-6 mt-6 border-t border-white/5 flex justify-between items-end">
-            <div>
-              <p className="text-indigo-400 font-black uppercase text-[10px] tracking-[0.3em] mb-1">Útgreitt</p>
-              <h4 className="text-3xl font-black text-white uppercase tracking-tighter">Nettó Laun</h4>
+        <div className="p-8 md:p-14 space-y-12">
+          {/* Header Info */}
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 bg-white flex items-center justify-center rounded-2xl">
+                   <span className="text-slate-900 font-black italic text-xl">T</span>
+                </div>
+                <h2 className="text-4xl font-black text-white italic tracking-tighter">TAKK ehf.</h2>
+              </div>
+              <div className="pl-1">
+                <p className="text-slate-500 font-bold uppercase text-[9px] tracking-widest">Greiðandi</p>
+                <p className="text-white/80 font-medium text-sm">Reykjavík, Ísland</p>
+                <p className="text-slate-500 font-bold text-[9px] tracking-widest">Kt: 510214-0420</p>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-4xl font-black text-indigo-400 tracking-tighter">
-                {formatISK(summary.netPay)}
-              </span>
+            
+            <div className="bg-white/2 border border-white/5 rounded-[32px] p-8 min-w-[280px]">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                <div>
+                  <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Starfsmaður</p>
+                  <p className="text-white font-black truncate">{userName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Tímabil</p>
+                  <p className="text-indigo-400 font-black capitalize">{currentMonth}</p>
+                </div>
+                <div className="pt-4 border-t border-white/5">
+                  <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Vinnustundir</p>
+                  <p className="text-white font-black">{(payroll.dayHours + payroll.eveningHours).toFixed(2)} klst</p>
+                </div>
+                <div className="text-right pt-4 border-t border-white/5">
+                  <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Gjalddagi</p>
+                  <p className="text-white font-black">01. {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('is-IS', { month: 'short' })}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Personal Allowance usage adjustment */}
-        <div className="mt-10 p-6 bg-white/2 rounded-3xl border border-white/5 space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* INCOME SECTION */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-2 pb-4 border-b border-white/5">
+                <Wallet className="text-indigo-400" size={18} />
+                <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Laun & Greiðslur</h4>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center group">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-200">Dagvinna</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.dayHours} klst @ 2.724,88</p>
+                  </div>
+                  <span className="text-white font-black">{formatISK(payroll.dayEarnings)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center group">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-200">Eftirvinna</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.eveningHours} klst @ 3.768,47</p>
+                  </div>
+                  <span className="text-white font-black">{formatISK(payroll.eveningEarnings)}</span>
+                </div>
+
+                <div className="flex justify-between items-center group pt-2">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-indigo-400">Orlofsfé</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">10,17% af heildarlaunum</p>
+                  </div>
+                  <span className="text-indigo-400 font-black">{formatISK(payroll.orlof)}</span>
+                </div>
+              </div>
+            </section>
+
+            {/* DEDUCTIONS SECTION */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-2 pb-4 border-b border-white/5">
+                <TrendingDown className="text-rose-400" size={18} />
+                <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Lögbundinn Frádráttur</h4>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-200">Lífeyrissjóður</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Framlag launþega 4%</p>
+                  </div>
+                  <span className="text-rose-400 font-black">-{formatISK(payroll.pensionFund)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-200">Stéttarfélagsgjald</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">0,7% iðgjald</p>
+                  </div>
+                  <span className="text-rose-400 font-black">-{formatISK(payroll.unionFee)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-200">Staðgreiðsla skatts</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Persónuafsláttur: {formatISK(payroll.allowanceUsed)}</p>
+                  </div>
+                  <span className="text-rose-400 font-black">-{formatISK(payroll.finalTax)}</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* SUMMARY FOOTER */}
+          <div className="mt-16 pt-12 border-t-2 border-dashed border-white/5">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-10">
+              <div className="w-full md:w-1/2 space-y-6">
+                <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <span>Heildarlaun (Brúttó)</span>
+                  <span className="text-white">{formatISK(payroll.totalGross)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <span>Samtals frádráttur</span>
+                  <span className="text-rose-500">{formatISK(payroll.totalDeductions)}</span>
+                </div>
+                
+                {/* Allowance Slider */}
+                <div className="p-6 bg-indigo-500/5 rounded-[32px] border border-indigo-500/10 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Percent size={14} className="text-indigo-400" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nýting persónuafsláttar</p>
+                    </div>
+                    <span className="text-xs font-black text-indigo-400">{Math.round((settings.allowanceUsage || 0) * 100)}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.01" 
+                    value={settings.allowanceUsage || 0} 
+                    onChange={(e) => onUpdateSettings({...settings, allowanceUsage: parseFloat(e.target.value)})}
+                    className="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full md:w-auto text-right">
+                <p className="text-indigo-400 font-black uppercase text-[10px] tracking-[0.4em] mb-2 italic">Til Útgreiðslu</p>
+                <div className="inline-block p-1 rounded-[32px] bg-gradient-to-r from-indigo-600 to-violet-600 shadow-2xl shadow-indigo-600/30">
+                  <div className="bg-[#020617] rounded-[28px] px-10 py-6">
+                    <h4 className="text-5xl font-black text-white tracking-tighter italic">
+                      {formatISK(payroll.netPay)}
+                    </h4>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-12 flex flex-col sm:flex-row justify-between items-center gap-6 opacity-30 grayscale hover:opacity-100 transition-all group">
             <div className="flex items-center gap-2">
-              <Percent size={14} className="text-indigo-400" />
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nýting persónuafsláttar</p>
+              <ShieldCheck size={16} className="text-emerald-400" />
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">Staðfest af WageTrack Neural System • 2025</p>
             </div>
-            <span className="text-xs font-black text-white">{Math.round((settings.allowanceUsage || 0) * 100)}%</span>
+            <div className="flex items-center gap-4">
+               <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
+               <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] italic">TAKK EHF • PROFESSIONAL PAYROLL SOLUTIONS</p>
+            </div>
           </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="1" 
-            step="0.01" 
-            value={settings.allowanceUsage || 0} 
-            onChange={(e) => onUpdateSettings({...settings, allowanceUsage: parseFloat(e.target.value)})}
-            className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-          />
-          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-wider text-center">Dragðu til að breyta skattanýtingu fyrir þetta tímabil</p>
+        </div>
+      </div>
+      
+      {/* Information Alert */}
+      <div className="bg-indigo-500/5 p-6 rounded-[32px] border border-indigo-500/10 flex items-start gap-4 mx-4">
+        <Clock className="text-indigo-400 shrink-0 mt-1" size={18} />
+        <div>
+          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Athugið</p>
+          <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+            Þessi seðill er byggður á skráðum vinnustundum í kerfinu. Skattþrep 2025 eru reiknuð miðað við gildandi lög á Íslandi. 
+            Vinsamlegast tryggðu að mæting sé rétt skráð í vaktasögu fyrir nákvæman útreikning.
+          </p>
         </div>
       </div>
     </div>
