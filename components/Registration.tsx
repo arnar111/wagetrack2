@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { Save, Clock, ShoppingBag, TrendingUp, Trophy, AlertCircle, RefreshCcw, Edit3 } from 'lucide-react';
+import { Save, Clock, ShoppingBag, TrendingUp, Trophy, RefreshCcw, Edit3, Zap } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -30,11 +30,7 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
     project: PROJECTS[0]
   });
 
-  // Athuga hvort vakt sé þegar skráð fyrir daginn í dag
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const savedHours = localStorage.getItem(`takk_hours_${today}`);
-    
     if (editingShift) {
       setVaktData({
         date: editingShift.date,
@@ -43,11 +39,15 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
         notes: editingShift.notes
       });
       setShowPopup(false);
-    } else if (savedHours) {
-      setVaktData(prev => ({ ...prev, ...JSON.parse(savedHours) }));
-      setShowPopup(false);
     } else {
-      setShowPopup(true);
+      const today = new Date().toISOString().split('T')[0];
+      const savedHours = localStorage.getItem(`takk_hours_${today}`);
+      if (savedHours) {
+        setVaktData(prev => ({ ...prev, ...JSON.parse(savedHours), date: today }));
+        setShowPopup(false);
+      } else {
+        setShowPopup(true);
+      }
     }
   }, [editingShift]);
 
@@ -61,30 +61,30 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
   const totalHoursPlanned = vaktData.dayHours + vaktData.eveningHours;
   const numSales = todaySales.length;
 
-  // Pace = (Total Sales) / (Duration since first sale today until now)
   const { avgPerHour, projectedFinal } = useMemo(() => {
     if (todaySales.length === 0 || totalHoursPlanned <= 0) return { avgPerHour: 0, projectedFinal: 0 };
-
     const timestamps = todaySales.map(s => new Date(s.timestamp).getTime());
     const firstSaleTime = Math.min(...timestamps);
-    
-    // Elapsed time from first sale to now (min 15 mins for stability)
     const elapsedMs = Math.max(15 * 60 * 1000, now.getTime() - firstSaleTime);
     const elapsedHours = elapsedMs / (1000 * 60 * 60);
-
     const currentPace = totalSalesToday / elapsedHours;
-    
-    // Projected = PACE * Total Planned Hours
     const projected = currentPace * totalHoursPlanned;
-
-    return { 
-      avgPerHour: currentPace, 
-      projectedFinal: projected 
-    };
+    return { avgPerHour: currentPace, projectedFinal: projected };
   }, [todaySales, totalHoursPlanned, now, totalSalesToday]);
 
   const progressPercent = Math.min(100, (totalSalesToday / goals.daily) * 100);
   const isGoalMet = totalSalesToday >= goals.daily;
+
+  const handleQuickAdd = (type: 'hringurinn' | 'verid') => {
+    if (type === 'hringurinn') {
+      setVaktData(prev => ({ ...prev, dayHours: 6, eveningHours: 2 }));
+      setSaleData(prev => ({ ...prev, project: 'Hringurinn' }));
+    } else {
+      setVaktData(prev => ({ ...prev, dayHours: 4, eveningHours: 4 }));
+      setSaleData(prev => ({ ...prev, project: 'Verið' }));
+    }
+    setShowPopup(false);
+  };
 
   const handleSaveHours = () => {
     if (vaktData.dayHours + vaktData.eveningHours > 0) {
@@ -124,12 +124,42 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-20 relative">
-      
       {/* Hours Setup Popup */}
       {showPopup && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="glass p-10 rounded-[40px] w-full max-w-md border-indigo-500/30 shadow-[0_0_50px_rgba(79,70,229,0.2)]">
-            <h3 className="text-2xl font-black text-white uppercase italic mb-8 text-center">Vinnutímar í dag</h3>
+            <h3 className="text-2xl font-black text-white uppercase italic mb-6 text-center">Ný Vakt</h3>
+            
+            {/* Quick Add Buttons */}
+            <div className="flex flex-col gap-3 mb-8">
+              <button 
+                onClick={() => handleQuickAdd('hringurinn')}
+                className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-indigo-500/30 transition-all group"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-black text-white uppercase tracking-tighter">Hringurinn</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (6+2)</p>
+                </div>
+                <Zap size={16} className="text-indigo-400 group-hover:scale-125 transition-transform" />
+              </button>
+              <button 
+                onClick={() => handleQuickAdd('verid')}
+                className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-violet-500/30 transition-all group"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-black text-white uppercase tracking-tighter">Verið</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (4+4)</p>
+                </div>
+                <Zap size={16} className="text-violet-400 group-hover:scale-125 transition-transform" />
+              </button>
+            </div>
+
+            <div className="relative flex items-center gap-4 mb-8">
+              <div className="h-[1px] flex-1 bg-white/10"></div>
+              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Eða handvirkt</span>
+              <div className="h-[1px] flex-1 bg-white/10"></div>
+            </div>
+
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div>
                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">Dagvinna</label>
@@ -145,7 +175,7 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
         </div>
       )}
 
-      {/* 1. Mælikvarðar efst */}
+      {/* Mælikvarðar efst */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div className="glass p-5 rounded-[32px] border-indigo-500/10">
           <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Sala dagsins</p>
@@ -166,41 +196,24 @@ const Registration: React.FC<RegistrationProps> = ({ onSaveShift, onSaveSale, cu
         </div>
       </div>
 
-      {/* 2. Markmiðsmælir */}
+      {/* Markmiðsmælir */}
       <div className="glass p-6 rounded-[40px] border-white/5 relative overflow-hidden">
         <div className="flex justify-between items-end mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                Vantar í dagsmarkmið
-              </p>
-              <button 
-                onClick={() => setIsEditingGoal(!isEditingGoal)} 
-                className="text-indigo-400 hover:text-white transition-colors"
-              >
-                <Edit3 size={12} />
-              </button>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Vantar í dagsmarkmið</p>
+              <button onClick={() => setIsEditingGoal(!isEditingGoal)} className="text-indigo-400 hover:text-white transition-colors"><Edit3 size={12} /></button>
             </div>
-            
             <div className="flex items-center gap-3">
               {isEditingGoal ? (
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="number" 
-                    value={goals.daily} 
-                    onChange={e => onUpdateGoals({...goals, daily: parseInt(e.target.value) || 0})}
-                    onBlur={() => setIsEditingGoal(false)}
-                    autoFocus
-                    className="bg-white/5 border border-white/10 rounded-lg p-1 text-lg font-black text-white w-32 outline-none"
-                  />
+                  <input type="number" value={goals.daily} onChange={e => onUpdateGoals({...goals, daily: parseInt(e.target.value) || 0})} onBlur={() => setIsEditingGoal(false)} autoFocus className="bg-white/5 border border-white/10 rounded-lg p-1 text-lg font-black text-white w-32 outline-none" />
                   <span className="text-xs text-slate-500 font-bold">ISK Markmið</span>
                 </div>
               ) : (
                 <h4 className="text-xl font-black text-white uppercase tracking-tight">
                   {formatISK(Math.max(0, goals.daily - totalSalesToday))} ISK 
-                  <span className="text-[10px] text-slate-500 font-bold normal-case tracking-normal ml-2">
-                    (af {formatISK(goals.daily)})
-                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold normal-case tracking-normal ml-2">(af {formatISK(goals.daily)})</span>
                 </h4>
               )}
             </div>

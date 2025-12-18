@@ -1,7 +1,8 @@
 
 import React, { useMemo } from 'react';
 import { WageSummary, WageSettings, Shift } from '../types';
-import { FileText, Printer, Download, Wallet, TrendingDown, Clock, Percent, ShieldCheck } from 'lucide-react';
+import { FileText, Printer, Download, Wallet, TrendingDown, Clock, Percent, ShieldCheck, AlertCircle } from 'lucide-react';
+import { calculateSalesBonus } from '../utils/calculations.ts';
 
 interface PayslipProps {
   shifts: Shift[];
@@ -24,20 +25,26 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
 
   // Detailed Payroll Calculations for Takk ehf
   const payroll = useMemo(() => {
-    const dayRate = 2724.88;
-    const eveningRate = 3768.47;
+    const dayRate = settings.dayRate || 2724.88;
+    const eveningRate = settings.eveningRate || 3768.47;
     const orlofRate = 0.1017;
     const pensionRate = 0.04;
     const unionRate = 0.007;
 
     const totalDayHours = shifts.reduce((acc, s) => acc + s.dayHours, 0);
     const totalEveningHours = shifts.reduce((acc, s) => acc + s.eveningHours, 0);
+    const totalHours = totalDayHours + totalEveningHours;
 
     const dayEarnings = totalDayHours * dayRate;
     const eveningEarnings = totalEveningHours * eveningRate;
-    const baseSubtotal = dayEarnings + eveningEarnings;
-    const orlof = baseSubtotal * orlofRate;
-    const totalGross = baseSubtotal + orlof;
+    
+    // 1604 Bónus logic
+    const bonus = calculateSalesBonus(summary.totalSales, totalHours);
+    
+    const subtotalForOrlof = dayEarnings + eveningEarnings + bonus;
+    // 901 Orlof
+    const orlof = subtotalForOrlof * orlofRate;
+    const totalGross = subtotalForOrlof + orlof;
 
     const pensionFund = totalGross * pensionRate;
     const unionFee = totalGross * unionRate;
@@ -47,21 +54,19 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
     let calculatedTax = 0;
     let remainingIncome = taxableIncome;
 
-    // Step 1: 0 - 472,005 at 31.45%
     const step1Max = 472005;
+    const step2Max = 1273190;
+
     const step1Income = Math.min(remainingIncome, step1Max);
     calculatedTax += step1Income * 0.3145;
     remainingIncome -= step1Income;
 
-    // Step 2: 472,006 - 1,273,190 at 37.95%
     if (remainingIncome > 0) {
-      const step2Max = 1273190 - step1Max;
-      const step2Income = Math.min(remainingIncome, step2Max);
+      const step2Income = Math.min(remainingIncome, step2Max - step1Max);
       calculatedTax += step2Income * 0.3795;
       remainingIncome -= step2Income;
     }
 
-    // Step 3: Over 1,273,190 at 46.25%
     if (remainingIncome > 0) {
       calculatedTax += remainingIncome * 0.4625;
     }
@@ -76,6 +81,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
       eveningHours: totalEveningHours,
       dayEarnings,
       eveningEarnings,
+      bonus,
       orlof,
       totalGross,
       pensionFund,
@@ -83,9 +89,10 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
       finalTax,
       totalDeductions,
       netPay,
-      allowanceUsed: personalAllowance
+      allowanceUsed: personalAllowance,
+      totalHours
     };
-  }, [shifts, settings.personalAllowance, settings.allowanceUsage]);
+  }, [shifts, summary.totalSales, settings.dayRate, settings.eveningRate, settings.personalAllowance, settings.allowanceUsage]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700">
@@ -109,7 +116,6 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
       </div>
 
       <div className="glass rounded-[48px] border-white/10 overflow-hidden relative shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
-        {/* Top Decorative Bar */}
         <div className="h-2 w-full bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600" />
         
         <div className="p-8 md:p-14 space-y-12">
@@ -141,7 +147,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
                 </div>
                 <div className="pt-4 border-t border-white/5">
                   <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Vinnustundir</p>
-                  <p className="text-white font-black">{(payroll.dayHours + payroll.eveningHours).toFixed(2)} klst</p>
+                  <p className="text-white font-black">{payroll.totalHours.toFixed(2)} klst</p>
                 </div>
                 <div className="text-right pt-4 border-t border-white/5">
                   <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Gjalddagi</p>
@@ -161,23 +167,42 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
               <div className="space-y-4">
                 <div className="flex justify-between items-center group">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-200">Dagvinna</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.dayHours} klst @ 2.724,88</p>
+                    <p className="text-sm font-bold text-slate-200">101 Dagvinna</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.dayHours.toFixed(2)} klst @ {settings.dayRate || 2724.88}</p>
                   </div>
                   <span className="text-white font-black">{formatISK(payroll.dayEarnings)}</span>
                 </div>
                 
                 <div className="flex justify-between items-center group">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-200">Eftirvinna</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.eveningHours} klst @ 3.768,47</p>
+                    <p className="text-sm font-bold text-slate-200">1026 Eftirvinna</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{payroll.eveningHours.toFixed(2)} klst @ {settings.eveningRate || 3768.47}</p>
                   </div>
                   <span className="text-white font-black">{formatISK(payroll.eveningEarnings)}</span>
                 </div>
 
-                <div className="flex justify-between items-center group pt-2">
+                <div className="flex justify-between items-center group pt-2 relative">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-indigo-400">Orlofsfé</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-emerald-400">1604 Bónus</p>
+                      <div className="group/tip relative">
+                        <AlertCircle size={12} className="text-slate-600 cursor-help" />
+                        <div className="absolute bottom-full left-0 mb-2 w-48 p-3 glass border-white/10 rounded-xl text-[9px] text-slate-300 opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50">
+                          <p className="font-black text-indigo-400 uppercase mb-1">Útreikningur</p>
+                          Virkar klst: {payroll.totalHours.toFixed(2)}<br/>
+                          Breaks: -{(payroll.totalHours * 0.125).toFixed(2)}<br/>
+                          Threshold: {(payroll.totalHours * 0.875).toFixed(2)} klst * 636 ISK
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sölubónus m/orl.</p>
+                  </div>
+                  <span className="text-emerald-400 font-black">{formatISK(payroll.bonus)}</span>
+                </div>
+
+                <div className="flex justify-between items-center group pt-2 border-t border-white/5">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-indigo-400">901 Orlof</p>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">10,17% af heildarlaunum</p>
                   </div>
                   <span className="text-indigo-400 font-black">{formatISK(payroll.orlof)}</span>
@@ -189,29 +214,29 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
             <section className="space-y-6">
               <div className="flex items-center gap-2 pb-4 border-b border-white/5">
                 <TrendingDown className="text-rose-400" size={18} />
-                <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Lögbundinn Frádráttur</h4>
+                <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Frádráttur</h4>
               </div>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-200">Lífeyrissjóður</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Framlag launþega 4%</p>
+                    <p className="text-sm font-bold text-slate-200">10 Iðgjald</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Lífeyrissjóður 4%</p>
                   </div>
                   <span className="text-rose-400 font-black">-{formatISK(payroll.pensionFund)}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-200">Stéttarfélagsgjald</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">0,7% iðgjald</p>
+                    <p className="text-sm font-bold text-slate-200">50 Félagsgjald</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Stéttarfélag 0,7%</p>
                   </div>
                   <span className="text-rose-400 font-black">-{formatISK(payroll.unionFee)}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-200">Staðgreiðsla skatts</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Persónuafsláttur: {formatISK(payroll.allowanceUsed)}</p>
+                    <p className="text-sm font-bold text-slate-200">Staðgreiðsla</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mínus persónuafsláttur</p>
                   </div>
                   <span className="text-rose-400 font-black">-{formatISK(payroll.finalTax)}</span>
                 </div>
@@ -232,7 +257,6 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
                   <span className="text-rose-500">{formatISK(payroll.totalDeductions)}</span>
                 </div>
                 
-                {/* Allowance Slider */}
                 <div className="p-6 bg-indigo-500/5 rounded-[32px] border border-indigo-500/10 space-y-4">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
@@ -254,7 +278,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
               </div>
 
               <div className="w-full md:w-auto text-right">
-                <p className="text-indigo-400 font-black uppercase text-[10px] tracking-[0.4em] mb-2 italic">Til Útgreiðslu</p>
+                <p className="text-indigo-400 font-black uppercase text-[10px] tracking-[0.4em] mb-2 italic">Laun til Útgreiðslu</p>
                 <div className="inline-block p-1 rounded-[32px] bg-gradient-to-r from-indigo-600 to-violet-600 shadow-2xl shadow-indigo-600/30">
                   <div className="bg-[#020617] rounded-[28px] px-10 py-6">
                     <h4 className="text-5xl font-black text-white tracking-tighter italic">
@@ -269,25 +293,13 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
           <div className="pt-12 flex flex-col sm:flex-row justify-between items-center gap-6 opacity-30 grayscale hover:opacity-100 transition-all group">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-emerald-400" />
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">Staðfest af WageTrack Neural System • 2025</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">WageTrack Verified Document • 2025</p>
             </div>
             <div className="flex items-center gap-4">
                <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
                <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] italic">TAKK EHF • PROFESSIONAL PAYROLL SOLUTIONS</p>
             </div>
           </div>
-        </div>
-      </div>
-      
-      {/* Information Alert */}
-      <div className="bg-indigo-500/5 p-6 rounded-[32px] border border-indigo-500/10 flex items-start gap-4 mx-4">
-        <Clock className="text-indigo-400 shrink-0 mt-1" size={18} />
-        <div>
-          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Athugið</p>
-          <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-            Þessi seðill er byggður á skráðum vinnustundum í kerfinu. Skattþrep 2025 eru reiknuð miðað við gildandi lög á Íslandi. 
-            Vinsamlegast tryggðu að mæting sé rétt skráð í vaktasögu fyrir nákvæman útreikning.
-          </p>
         </div>
       </div>
     </div>
