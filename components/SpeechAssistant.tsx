@@ -1,28 +1,38 @@
 
 import React, { useState } from 'react';
-import { Sparkles, Search, PlusCircle, BookOpen, Mic2, ArrowRight, Copy, Check } from 'lucide-react';
-import { getSpeechAssistantResponse } from '../geminiService';
-import { PROJECTS } from '../constants';
-import { WageSummary } from '../types';
+import { Sparkles, Search, PlusCircle, BookOpen, Mic2, ArrowRight, Copy, Check, ExternalLink } from 'lucide-react';
+import { getSpeechAssistantResponse, SpeechResult } from '../geminiService.ts';
+import { PROJECTS } from '../constants.ts';
+import { WageSummary } from '../types.ts';
 
 export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
   const [project, setProject] = useState(PROJECTS[0]);
   const [mode, setMode] = useState<'create' | 'search'>('create');
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState<SpeechResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
 
   const handleAction = async () => {
     setLoading(true);
-    setResult('');
-    const context = `Sala: ${summary.totalSales} ISK. Meðaltal: ${summary.totalHours > 0 ? (summary.totalSales / summary.totalHours).toFixed(0) : 0} ISK/klst.`;
-    const res = await getSpeechAssistantResponse(mode, project, context);
-    setResult(res);
-    setLoading(false);
+    setError('');
+    setResult(null);
+    
+    try {
+      const context = `Núverandi sala dagsins: ${summary.totalSales} ISK.`;
+      const res = await getSpeechAssistantResponse(mode, project, context);
+      setResult(res);
+    } catch (e: any) {
+      console.error(e);
+      setError('Villa kom upp við að sækja ræðu. Gakktu úr skugga um að tenging sé virk.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(result);
+    if (!result) return;
+    navigator.clipboard.writeText(result.text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -106,37 +116,66 @@ export default function SpeechAssistant({ summary }: { summary: WageSummary }) {
           </div>
           
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            {result ? (
-              <div className="text-slate-200 text-base leading-relaxed whitespace-pre-wrap font-medium">
-                {result.split('\n').map((line, i) => {
-                  const trimmed = line.trim();
-                  if (!trimmed) return <div key={i} className="h-4" />;
-                  
-                  // Ef línan byrjar á tölu (fyrir 5 brot)
-                  const isNum = /^[1-5]\./.test(trimmed);
-                  
-                  return (
-                    <div 
-                      key={i} 
-                      className={`mb-4 ${isNum ? 'p-5 bg-indigo-500/5 rounded-2xl border border-white/5 shadow-sm' : ''}`}
-                    >
-                      {line}
-                    </div>
-                  );
-                })}
+            {error && (
+              <div className="p-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-sm font-bold text-center">
+                {error}
               </div>
-            ) : (
+            )}
+            
+            {result ? (
+              <div className="space-y-6">
+                <div className="text-slate-200 text-base leading-relaxed whitespace-pre-wrap font-medium">
+                  {result.text.split('\n').map((line, i) => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return <div key={i} className="h-4" />;
+                    const isNum = /^[0-9]\./.test(trimmed);
+                    return (
+                      <div key={i} className={`mb-4 ${isNum ? 'p-5 bg-indigo-500/5 rounded-2xl border border-white/5 shadow-sm' : ''}`}>
+                        {line}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {result.sources && result.sources.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-white/5">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Heimildir (Leitarniðurstöður)</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {result.sources.map((src, idx) => (
+                        <a 
+                          key={idx} 
+                          href={src.uri} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold text-indigo-400 hover:bg-white/10 transition-all"
+                        >
+                          <ExternalLink size={12} />
+                          {src.title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : !loading && !error && (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20">
                 <BookOpen size={64} className="mb-6" />
                 <h4 className="text-lg font-bold text-white uppercase tracking-widest">Bíð eftir skipun</h4>
-                <p className="text-xs mt-2 max-w-xs">Veldu verkefni og aðgerð vinstra megin til að sækja upplýsingar úr gagnagrunninum.</p>
+                <p className="text-xs mt-2 max-w-xs">Veldu verkefni og aðgerð vinstra megin til að sækja upplýsingar.</p>
+              </div>
+            )}
+
+            {loading && (
+              <div className="h-full flex flex-col items-center justify-center py-20">
+                <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest animate-pulse">AI að skrifa...</p>
               </div>
             )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-white/5 text-center">
              <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em]">
-               Gögn sótt í rauntíma • Google GenAI Search
+               Gögn sótt í rauntíma • Gemini AI Engine
              </p>
           </div>
         </div>

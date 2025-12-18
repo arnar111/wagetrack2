@@ -2,66 +2,68 @@
 import { GoogleGenAI } from "@google/genai";
 import { Shift, WageSummary } from "./types.ts";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
-  const prompt = `Greindu: Vaktir: ${JSON.stringify(shifts)}, Klst: ${summary.totalHours}, Sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, hreinum texta, max 3 stuttar línur. Engin tákn eins og * eða #.`;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Greindu eftirfarandi gögn fyrir starfsmann: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur.`;
+  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: { thinkingConfig: { thinkingBudget: 0 } }
+      contents: prompt
     });
-    return response.text?.replace(/[*#]/g, '') || "Engin greining.";
+    
+    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk að svo stöddu.";
   } catch (e) { 
     console.error("Wage insights error:", e);
-    return "Villa við greiningu."; 
+    return "Villa við að sækja greiningu."; 
   }
 };
 
-export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string) => {
-  const tools = mode === 'search' ? [{ googleSearch: {} }] : [];
-  
-  const systemInstruction = `
-    Þú ert Speech Architect fyrir LaunaApp Takk.
-    
-    HAMUR: CREATE (Urgency)
-    - Búðu til nákvæmlega 5 kröftuga sölubúta (ræðubúta) sem leggja áherslu á mikilvægi þess að styrkja NÚNA.
-    - Hver bútur á að vera um 50-75 orð að lengd.
-    - Þeir eiga að vera innilegir, sannfærandi og tilfinningaþrungnir.
-    - EKKI búa til inngang, kveðju eða útskýringar. Bara 5 tölusettir punktar.
-    
-    HAMUR: SEARCH (Original)
-    - Finndu raunverulegt söluhitrit eða handrit fyrir ${project}.
-    - Birtu það í sinni hreinu mynd (Hook, Story, Ask).
-    
-    REGLUR:
-    1. ALGERLEGA BANNNAÐ að nota Markdown tákn (*, #, -, _, >).
-    2. Svaraðu á hreinum texta á Íslensku.
-    3. Spyrðu alltaf "Viltu bæta launamarkmiðum við?" í lokin.
-  `;
+export interface SpeechResult {
+  text: string;
+  sources?: { title: string; uri: string }[];
+}
 
-  const prompt = mode === 'create' 
-    ? `Búðu til 5 urgency sölubúta (50-75 orð hver) fyrir ${project}. Bara bútanir.` 
-    : `Finndu original söluræðu fyrir ${project} á Íslandi.`;
+export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string): Promise<SpeechResult> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const hasTools = mode === 'search';
+  
+  const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK. 
+  Í hamnum CREATE: Búðu til 5 stutta og hvetjandi sölubúta (50-70 orð hver) sem leggja áherslu á af hverju fólk ætti að styrkja ${project} NÚNA. 
+  Í hamnum SEARCH: Finndu upplýsingar um helstu áherslur og sölupunkta fyrir ${project}. 
+  SKILYRÐI: Svaraðu á hreinum texta á íslensku. EKKI nota markdown tákn eins og *, #, -, _ eða >. Notaðu bara tölustafi fyrir lista.`;
+
+  const userPrompt = mode === 'create' 
+    ? `Búðu til 5 kröftuga sölubúta fyrir ${project}. ${context ? `Hafðu þetta samhengi í huga: ${context}` : ''}`
+    : `Finndu sölupunkta og bakgrunn fyrir verkefnið ${project}.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: `${context ? `Samhengi: ${context}\n` : ''}${prompt}` }] }],
+      contents: userPrompt,
       config: { 
-        systemInstruction, 
-        ...(tools.length > 0 ? { tools } : {}),
-        thinkingConfig: { thinkingBudget: 0 } 
+        systemInstruction,
+        ...(hasTools ? { tools: [{ googleSearch: {} }] } : {})
       }
     });
     
-    const text = response.text;
-    if (!text) return "Fann ekki svar frá AI.";
+    const text = response.text || "Ekkert svar fannst.";
+    const cleanText = text.replace(/[*#\-_>]/g, '').trim();
     
-    return text.replace(/[*#\-_>]/g, '').trim();
+    // Extract sources if available (Google Search Grounding)
+    const sources: { title: string; uri: string }[] = [];
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+      chunks.forEach((chunk: any) => {
+        if (chunk.web?.uri && chunk.web?.title) {
+          sources.push({ title: chunk.web.title, uri: chunk.web.uri });
+        }
+      });
+    }
+
+    return { text: cleanText, sources };
   } catch (e) { 
     console.error("Speech assistant error:", e);
-    return "Villa kom upp við að sækja ræðu. Reyndu aftur síðar."; 
+    throw e;
   }
 };
