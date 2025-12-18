@@ -66,61 +66,6 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const seedTestData = async (userId: string) => {
-    const q = query(collection(db, "shifts"), where("userId", "==", userId));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) return;
-
-    const batch = writeBatch(db);
-    const projects = ["Samhjálp", "SKB", "Hjálparstarfið", "Stígamót"];
-    const now = new Date();
-    
-    // Seed 20 weekdays
-    for (let i = 0; i < 28; i++) {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      const day = d.getDay();
-      if (day === 0 || day === 6) continue; // Skip weekends
-
-      const dateStr = d.toISOString().split('T')[0];
-      const dailyTotal = 15000 + (Math.floor(Math.random() * 38) * 500); // 15000 to 34000
-      
-      const shiftRef = doc(collection(db, "shifts"));
-      batch.set(shiftRef, {
-        userId,
-        date: dateStr,
-        dayHours: 6,
-        eveningHours: 2,
-        totalSales: dailyTotal,
-        notes: "Sjálfvirk tilraunagögn"
-      });
-
-      // Split into 3-4 sales
-      let remaining = dailyTotal;
-      for (let j = 0; j < 4; j++) {
-        const amt = j === 3 ? remaining : (Math.floor((remaining / 4) / 500) * 500);
-        remaining -= amt;
-        if (amt <= 0) continue;
-        
-        const saleRef = doc(collection(db, "sales"));
-        const time = new Date(d);
-        time.setHours(10 + j * 2, Math.floor(Math.random() * 60));
-        batch.set(saleRef, {
-          userId,
-          date: dateStr,
-          timestamp: time.toISOString(),
-          amount: amt,
-          project: projects[Math.floor(Math.random() * projects.length)]
-        });
-      }
-    }
-    await batch.commit();
-  };
-
-  useEffect(() => {
-    if (user?.staffId === '123') seedTestData('123');
-  }, [user]);
-
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 1024) setIsSidebarOpen(true);
@@ -249,7 +194,18 @@ const App: React.FC = () => {
         </header>
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10 pb-32 md:pb-10">
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={handleUpdateGoals} sales={sales} />}
+            {activeTab === 'dashboard' && (
+              <Dashboard 
+                summary={summary} 
+                shifts={shifts} 
+                aiInsights={aiInsights} 
+                onAddClick={() => setActiveTab('register')} 
+                goals={goals} 
+                onUpdateGoals={handleUpdateGoals} 
+                sales={sales} 
+                staffId={user.staffId} 
+              />
+            )}
             {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} />}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}

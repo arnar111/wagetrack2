@@ -1,10 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Define and export SpeechResult interface for use in SpeechAssistant component
 export interface SpeechResult {
   text: string;
   sources: { title: string; uri: string }[];
@@ -13,13 +11,10 @@ export interface SpeechResult {
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => {
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
-    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
-    
-    // Accessing .text as a property as per @google/genai guidelines
     return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk að svo stöddu.";
   } catch (e) { 
     return "Villa við að sækja greiningu."; 
@@ -28,17 +23,13 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary) => 
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
   try {
-    const prompt = `Analyze these sales shifts and goals for a worker at TAKK. 
-    Shifts: ${JSON.stringify(shifts.slice(0, 15))}
-    Current Monthly Sales: ${summary.totalSales}
-    Monthly Goal: ${goals.monthly}
-    
-    Task: Provide a smart trajectory analysis. 
-    1. Predict end-of-month earnings based on trend (not just average).
-    2. Determine trend (up/down/stable).
-    3. Give 1 sentence of strategic advice in ICELANDIC.
-    4. Give a short motivational quote in ICELANDIC.
-    
+    const prompt = `Analyze sales trends for a TAKK employee. 
+    Current Sales: ${summary.totalSales} ISK. Goal: ${goals.monthly} ISK.
+    Recent Shifts: ${JSON.stringify(shifts.slice(0, 10))}.
+    Predict the end-of-month total based on trajectory.
+    Identify if the trend is 'up', 'down', or 'stable'.
+    Provide 1 strategic advice sentence in ICELANDIC.
+    Provide 1 short motivational sales quote in ICELANDIC.
     Respond ONLY in JSON.`;
 
     const response = await ai.models.generateContent({
@@ -50,7 +41,7 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
           type: Type.OBJECT,
           properties: {
             projectedEarnings: { type: Type.NUMBER },
-            trend: { type: Type.STRING, description: "'up', 'down', or 'stable'" },
+            trend: { type: Type.STRING },
             smartAdvice: { type: Type.STRING },
             motivationalQuote: { type: Type.STRING }
           },
@@ -58,15 +49,12 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
         }
       }
     });
-
-    // Safely parse JSON from response.text property
     return JSON.parse(response.text || '{}');
   } catch (e) {
-    console.error("Smart Analysis Error:", e);
     return {
-      projectedEarnings: summary.totalSales * 1.2,
+      projectedEarnings: summary.totalSales * 1.15,
       trend: 'stable',
-      smartAdvice: "Haltu áfram að skrá gögn til að fá nákvæmari AI greiningu.",
+      smartAdvice: "Haltu áfram að skrá vaktir fyrir AI greiningu.",
       motivationalQuote: "Allur árangur byrjar á ákvörðun um að reyna."
     };
   }
@@ -74,37 +62,27 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 
 export const getAIProjectComparison = async (sales: Sale[]) => {
   try {
-    const prompt = `Analyze these sales by project: ${JSON.stringify(sales)}. 
-    Compare which charities/projects are performing best and why.
-    Identify the "Hero Project" (best performer) and the "Opportunity Project" (most potential).
-    Respond in ICELANDIC, clean text, max 150 words.`;
-
+    const prompt = `Berðu saman árangur mismunandi verkefna (Samhjálp, SKB, Hjálparstarfið, Stígamót) byggt á þessum sölum: ${JSON.stringify(sales)}. 
+    Hvaða verkefni virkar best í sölunni núna? Hvar eru tækifærin?
+    Svaraðu á ÍSLENSKU, hreinn texti, max 100 orð.`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
-
-    // Accessing .text as a property and cleaning it
-    return response.text?.replace(/[*#]/g, '') || "Engin samanburðargreining tiltæk.";
+    return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
   } catch (e) {
-    return "Villa við að bera saman verkefni.";
+    return "Villa við greiningu.";
   }
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
   try {
-    const systemInstruction = `Þú ert Addi, vinalegur og klár gervigreindar-aðstoðarmaður fyrir starfsmenn TAKK. 
-    Appið heitir WageTrack Pro. 
-    Verkefni þitt er að hjálpa notendum að skilja hvernig appið virkar, útskýra launaútreikninga og hvetja þá í sölunni.
-    ALLTAF svara á ÍSLENSKU. Notaðu hreinan texta.`;
-
+    const systemInstruction = `Þú ert Addi, vinalegur og klár gervigreindar-aðstoðarmaður fyrir starfsmenn TAKK. Svaraðu ALLTAF á ÍSLENSKU. Notaðu hreinan texta.`;
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: history,
       config: { systemInstruction }
     });
-
-    // Accessing .text as a property
     return response.text?.replace(/[*#]/g, '') || "Fyrirgefðu, ég átti erfitt með að svara þessu.";
   } catch (e) {
     return "Tengingarvilla! Ég kemst ekki í sambandi við heilann minn í bili.";
@@ -113,36 +91,23 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string, context?: string): Promise<SpeechResult> => {
   try {
-    const hasTools = mode === 'search';
-    const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK. Svaraðu á íslensku. Hreinn texti. Engin markdown.`;
+    const systemInstruction = `Þú ert sölusérfræðingur fyrir TAKK. Svaraðu á íslensku. Hreinn texti.`;
     const userPrompt = mode === 'create' 
       ? `Búðu til 5 urgency sölubúta fyrir ${project}. ${context || ''}`
       : `Finndu helstu sölupunkta fyrir ${project}.`;
-
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: userPrompt }] }],
       config: { 
         systemInstruction,
-        ...(hasTools ? { tools: [{ googleSearch: {} }] } : {})
+        ...(mode === 'search' ? { tools: [{ googleSearch: {} }] } : {})
       }
     });
-    
-    // Accessing .text property as recommended
     const text = response.text || "";
-    const cleanText = text.replace(/[*#\-_>]/g, '').trim();
     const sources: { title: string; uri: string }[] = [];
-    
-    // Extracting grounding information for Google Search results
     response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach((chunk: any) => {
-      if (chunk.web?.uri) {
-        sources.push({ 
-          title: chunk.web.title || "Vefheimild", 
-          uri: chunk.web.uri 
-        });
-      }
+      if (chunk.web?.uri) sources.push({ title: chunk.web.title || "Vefheimild", uri: chunk.web.uri });
     });
-
-    return { text: cleanText, sources };
+    return { text: text.replace(/[*#\-_>]/g, '').trim(), sources };
   } catch (e) { throw e; }
 };

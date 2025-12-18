@@ -7,6 +7,7 @@ import {
 import { Shift, WageSummary, Goals, Sale } from '../types';
 import { DollarSign, TrendingUp, Activity, Star, BarChart3, Target, Sparkles, TrendingDown, ArrowRightCircle } from 'lucide-react';
 import { getSmartDashboardAnalysis } from '../geminiService.ts';
+import { forceSeedUser123 } from '../utils/seeder.ts';
 
 interface DashboardProps {
   summary: WageSummary;
@@ -16,9 +17,10 @@ interface DashboardProps {
   goals: Goals;
   onUpdateGoals: (g: Goals) => void;
   sales: Sale[];
+  staffId?: string;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateGoals }) => {
+const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateGoals, staffId }) => {
   const [smartData, setSmartData] = useState<any>(null);
   const [isLoadingSmart, setIsLoadingSmart] = useState(false);
 
@@ -48,13 +50,21 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
   const dailyProgress = Math.min(100, (salesToday / (goals.daily || 1)) * 100);
   const monthlyProgress = Math.min(100, (summary.totalSales / (goals.monthly || 1)) * 100);
 
-  const pieColors = ['#6366f1', 'rgba(255,255,255,0.05)'];
-
   const daysWorked = useMemo(() => new Set(shifts.map(s => s.date)).size || 1, [shifts]);
   const avgSalesPerDay = summary.totalSales / daysWorked;
 
   return (
     <div className="space-y-6 md:space-y-8 pb-32 md:pb-10">
+
+      {/* TEMP DEBUG BUTTON - Visible for development/test purposes */}
+      {staffId === '123' && (
+        <button 
+          onClick={forceSeedUser123}
+          className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-[24px] shadow-2xl shadow-red-600/20 animate-pulse transition-all active:scale-95 flex items-center justify-center gap-3"
+        >
+          🚨 FORCE REPAIR TEST DATA (User 123) 🚨
+        </button>
+      )}
       
       {/* AI Smart Coach Widget */}
       <div className="glass p-6 md:p-8 rounded-[40px] border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 to-transparent relative overflow-hidden group shadow-2xl animate-in fade-in slide-in-from-top-4 duration-700">
@@ -67,7 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
               <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
                 <Sparkles size={20} className="animate-pulse" />
               </div>
-              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em]">AI Smart Coach</h3>
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em]">Smart Coach</h3>
             </div>
             {isLoadingSmart ? (
               <div className="space-y-3">
@@ -77,20 +87,20 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             ) : (
               <div className="space-y-2">
                 <p className="text-lg md:text-xl font-black text-white italic tracking-tight leading-snug">
-                  „{smartData?.smartAdvice || "Haltu áfram að skrá vaktir til að fá rástillta greiningu."}“
+                  „{smartData?.smartAdvice || "Skráðu vaktir til að virkja AI ráðgjöf."}“
                 </p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/5">
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/20">
                     {smartData?.trend === 'up' ? <TrendingUp size={14} className="text-emerald-400" /> : <TrendingDown size={14} className="text-rose-400" />}
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trend: {smartData?.trend || '...'}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Trend: {smartData?.trend || 'stable'}</span>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-500 italic">"{smartData?.motivationalQuote}"</p>
+                  <p className="text-[10px] font-bold text-slate-500 italic">"{smartData?.motivationalQuote || 'Allur árangur byrjar á ákvörðun.'}"</p>
                 </div>
               </div>
             )}
           </div>
           <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-500 text-white font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-xl shadow-indigo-500/20">
-            Sjá meira <ArrowRightCircle size={16} />
+            Sjá Greiningu <ArrowRightCircle size={16} />
           </button>
         </div>
       </div>
@@ -129,9 +139,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400"><Star size={20} /></div>
           </div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Árangur / klst</p>
-          <h3 className="text-2xl font-black text-white tracking-tighter italic">
-            {formatISK(summary.totalHours > 0 ? summary.totalSales / summary.totalHours : 0)}
-          </h3>
+          <h3 className="text-2xl font-black text-white tracking-tighter italic">{formatISK(summary.totalHours > 0 ? summary.totalSales / summary.totalHours : 0)}</h3>
         </div>
       </div>
 
@@ -170,8 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
         <div className="glass p-8 rounded-[40px] border-indigo-500/20 flex flex-col justify-between shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
           
-          <div className="space-y-8">
-            {/* Monthly Speedometer */}
+          <div className="space-y-12">
             <div className="relative">
               <div className="flex items-center gap-3 mb-4">
                 <Target size={20} className="text-indigo-400" />
@@ -182,27 +189,28 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
                   <PieChart>
                     <Pie
                       data={[{ v: summary.totalSales }, { v: Math.max(0, goals.monthly - summary.totalSales) }]}
-                      cx="50%" cy="100%" innerRadius={60} outerRadius={80} startAngle={180} endAngle={0} dataKey="v" stroke="none" cornerRadius={8}
+                      cx="50%" cy="100%" innerRadius={60} outerRadius={85} startAngle={180} endAngle={0} dataKey="v" stroke="none" cornerRadius={10}
                     >
                       <Cell fill="#6366f1" /><Cell fill="rgba(255,255,255,0.05)" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute bottom-2 text-center">
-                  <span className="text-2xl font-black text-white italic">{Math.round(monthlyProgress)}%</span>
-                  <span className="text-[8px] uppercase tracking-widest text-slate-500 block">Mánaðar</span>
+                  <span className="text-2xl font-black text-white italic tracking-tighter">{Math.round(monthlyProgress)}%</span>
                 </div>
               </div>
-              <input 
-                type="number" 
-                value={goals.monthly} 
-                onChange={e => onUpdateGoals({...goals, monthly: parseInt(e.target.value) || 0})}
-                className="w-full bg-white/5 border-b border-white/10 p-2 text-center text-sm font-black text-indigo-400 outline-none hover:bg-white/10 transition-colors"
-                placeholder="Setja mánaðarmarkmið..."
-              />
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Breyta Markmiði (ISK)</label>
+                <input 
+                  type="number" 
+                  step="5000"
+                  value={goals.monthly} 
+                  onChange={e => onUpdateGoals({...goals, monthly: parseInt(e.target.value) || 0})}
+                  className="w-full bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-2xl text-center text-lg font-black text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
             </div>
 
-            {/* Daily Speedometer */}
             <div className="relative">
               <div className="flex items-center gap-3 mb-4">
                 <Star size={20} className="text-emerald-400" />
@@ -213,24 +221,26 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
                   <PieChart>
                     <Pie
                       data={[{ v: salesToday }, { v: Math.max(0, goals.daily - salesToday) }]}
-                      cx="50%" cy="100%" innerRadius={60} outerRadius={80} startAngle={180} endAngle={0} dataKey="v" stroke="none" cornerRadius={8}
+                      cx="50%" cy="100%" innerRadius={60} outerRadius={85} startAngle={180} endAngle={0} dataKey="v" stroke="none" cornerRadius={10}
                     >
                       <Cell fill="#10b981" /><Cell fill="rgba(255,255,255,0.05)" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute bottom-2 text-center">
-                  <span className="text-2xl font-black text-white italic">{Math.round(dailyProgress)}%</span>
-                  <span className="text-[8px] uppercase tracking-widest text-slate-500 block">Dags</span>
+                  <span className="text-2xl font-black text-white italic tracking-tighter">{Math.round(dailyProgress)}%</span>
                 </div>
               </div>
-              <input 
-                type="number" 
-                value={goals.daily} 
-                onChange={e => onUpdateGoals({...goals, daily: parseInt(e.target.value) || 0})}
-                className="w-full bg-white/5 border-b border-white/10 p-2 text-center text-sm font-black text-emerald-400 outline-none hover:bg-white/10 transition-colors"
-                placeholder="Setja dagsmarkmið..."
-              />
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Breyta Markmiði (ISK)</label>
+                <input 
+                  type="number" 
+                  step="500"
+                  value={goals.daily} 
+                  onChange={e => onUpdateGoals({...goals, daily: parseInt(e.target.value) || 0})}
+                  className="w-full bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-2xl text-center text-lg font-black text-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                />
+              </div>
             </div>
           </div>
         </div>
