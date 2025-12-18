@@ -40,14 +40,14 @@ const App: React.FC = () => {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   
-  // Notendalisti sem hægt er að breyta
+  // Notendalisti - Uppfærður lykill v3 til að tryggja nýtt snið
   const [allUsers, setAllUsers] = useState<User[]>(() => {
-    const savedUsers = localStorage.getItem('takk_users_v1');
+    const savedUsers = localStorage.getItem('takk_users_v3');
     return savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
   });
 
   useEffect(() => {
-    localStorage.setItem('takk_users_v1', JSON.stringify(allUsers));
+    localStorage.setItem('takk_users_v3', JSON.stringify(allUsers));
   }, [allUsers]);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ const App: React.FC = () => {
 
   if (!user) return <Login onLogin={setUser} users={allUsers} />;
 
-  const isAdmin = user.staffId === '570';
+  const isAdmin = String(user.staffId) === '570';
 
   const navItems = [
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },

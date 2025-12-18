@@ -15,10 +15,13 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = staffId.trim();
-    if (!name || cleanId.length !== 3) return;
+    if (!name || cleanId.length !== 3) {
+      alert("Nafn verður að vera til staðar og ID nákvæmlega 3 tölustafir!");
+      return;
+    }
 
-    // Athugum hvort ID sé þegar til
-    if (users.find(u => String(u.staffId) === cleanId)) {
+    // Athugum hvort ID sé þegar til - Berum saman sem trimmaða strengi
+    if (users.find(u => String(u.staffId).trim() === cleanId)) {
       alert("Þetta númer er þegar í notkun!");
       return;
     }
@@ -26,7 +29,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
       name: name.trim(),
-      staffId: cleanId // Vistað sem hreinn strengur
+      staffId: cleanId // Vistað sem strengur (t.d. "007")
     };
 
     onUpdateUsers([...users, newUser]);
@@ -36,7 +39,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
 
   const handleDeleteUser = (id: string) => {
     const userToDelete = users.find(u => u.id === id);
-    if (userToDelete?.staffId === '570') {
+    if (userToDelete && String(userToDelete.staffId).trim() === '570') {
       alert("Ekki hægt að eyða aðal admin!");
       return;
     }
@@ -104,7 +107,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
           {users.map(u => (
             <div key={u.id} className="flex items-center justify-between p-4 bg-white/2 rounded-2xl border border-white/5 hover:border-white/10 transition-all group">
               <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full gradient-bg flex items-center justify-center font-black text-xs text-white">
+                <div className="h-10 w-10 rounded-full gradient-bg flex items-center justify-center font-black text-xs text-white shadow-lg">
                   {u.name.charAt(0)}
                 </div>
                 <div>
@@ -114,8 +117,8 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
               </div>
               <button 
                 onClick={() => handleDeleteUser(u.id)}
-                className={`p-3 rounded-xl transition-all ${String(u.staffId) === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
-                disabled={String(u.staffId) === '570'}
+                className={`p-3 rounded-xl transition-all ${String(u.staffId).trim() === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
+                disabled={String(u.staffId).trim() === '570'}
               >
                 <Trash2 size={18} />
               </button>
