@@ -1,27 +1,24 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 /**
- * Sækir AI client með áherslu á process.env.API_KEY.
- * Leitar einnig í gluggabreytum ef process.env er tómt til að tryggja virkni í hýsingu.
+ * Sækir AI client með áherslu á forgangsröðun lykla.
  */
 const getAiClient = () => {
-  // Prófum kerfisleiðina fyrst
+  // Prófum kerfisleiðina fyrst (process.env.API_KEY er staðall í þessu umhverfi)
   let apiKey = process.env.API_KEY;
   
-  // Ef process.env vantar eða er óskilgreint, leitum í öðrum vöfrabreytingum (Netlify/Vite fallback)
+  // Ef process.env er tóm eða inniheldur placeholder, leitum í öðrum breytum
   if (!apiKey || apiKey === "undefined" || apiKey.includes("%VITE")) {
     apiKey = (window as any)._GEMINI_KEY;
   }
   
-  // Neyðarúrræði úr localStorage
   if (!apiKey || apiKey === "undefined" || apiKey.includes("%VITE")) {
-    apiKey = localStorage.getItem('GEMINI_API_KEY') || "";
+    apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
   }
 
   if (!apiKey || apiKey === "" || apiKey.includes("%VITE")) {
-    console.warn("DEBUG: No valid API key found in process.env, window, or localStorage");
+    console.warn("DEBUG: No valid API key found in process.env, window, or env variables");
     return null;
   }
   
@@ -35,7 +32,7 @@ export interface SpeechResult {
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Bíður eftir AI lykli...";
+  if (!ai) return "Bíður eftir lykli... (Gakktu úr skugga um að lykillinn sé rétt settur í Netlify eða Secrets)";
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     const response = await ai.models.generateContent({
@@ -48,13 +45,18 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
   }
 };
 
+/**
+ * Greining fyrir stjórnendur á árangri góðgerðarfélaga.
+ * Ber saman söfnun vs. launakostnað (2724.88 ISK/klst).
+ */
 export const getManagerCommandAnalysis = async (charityData: any) => {
   const ai = getAiClient();
-  if (!ai) return { strategicAdvice: "Bíður eftir AI lykli...", topProject: "Óvíst" };
+  if (!ai) return { strategicAdvice: "Bíður eftir lykli... (Gakktu úr skugga um að lykillinn sé rétt settur í Netlify eða Secrets)", topProject: "Óvíst" };
   try {
-    const prompt = `Berðu saman árangur þessara góðgerðarfélaga hlið við hlið: ${JSON.stringify(charityData)}. 
-    Skoðaðu hagnað (profit), meðalgjöf og skilvirkni (isk_per_hour).
-    Segðu stjórnanda hvaða félag er með hæsta hagnaðinn eftir launakostnað (2724.88 ISK/klst) og hvar er hægt að nýta mannskapinn betur. 
+    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. 
+    Skoðaðu Árangur (Heildarsöfnun), Skilvirkni (isk_per_hour) og Hagnað (profit).
+    Hagnaður er reiknaður: (Söfnun - (Virkir Tímar * 2724.88)).
+    Segðu stjórnanda hvaða félag gefur besta arðinn og hvar er hægt að nýta mannskapinn betur. 
     Svaraðu á ÍSLENSKU. JSON only. Keys: topProject (Nafn félags), strategicAdvice (Greining og ráðlegging).`;
 
     const response = await ai.models.generateContent({
@@ -74,13 +76,13 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
     });
     return JSON.parse(response.text || "{}");
   } catch (e) {
-    return { strategicAdvice: "AI greining tókst ekki. Vinsamlegast athugaðu API lykil.", topProject: "Gagna vantar" };
+    return { strategicAdvice: "AI greining tókst ekki í augnablikinu.", topProject: "Gagna vantar" };
   }
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
   const ai = getAiClient();
-  if (!ai) return "Engin AI tenging (vantar lykil). Sláðu inn lykil í LocalStorage ef þarf.";
+  if (!ai) return "Bíður eftir lykli... (Gakktu úr skugga um að lykillinn sé rétt settur í Netlify eða Secrets)";
   try {
     const systemInstruction = `Þú ert Addi, aðstoðarmaður hjá TAKK. Svaraðu alltaf á ÍSLENSKU á hvetjandi hátt. Notaðu hreinan texta.`;
     const response = await ai.models.generateContent({
@@ -125,9 +127,9 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
   const ai = getAiClient();
-  if (!ai) return { smartAdvice: "Bíður eftir AI lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
+  if (!ai) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
   try {
-    const prompt = `Greindu árangur starfsmanns hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Markmið: ${JSON.stringify(goals)}, Heildarsala: ${summary.totalSales}. Svaraðu í JSON formi á ÍSLENSKU. Keys: smartAdvice (stutt ráð), trend ('up' eða 'down'), motivationalQuote (stutt tilvitnun), projectedEarnings (tala).`;
+    const prompt = `Greindu árangur starfsmanns hjá TAKK: Markmið: ${JSON.stringify(goals)}, Heildarsala: ${summary.totalSales}. Svaraðu í JSON formi á ÍSLENSKU. Keys: smartAdvice (stutt ráð), trend ('up' eða 'down'), motivationalQuote (stutt tilvitnun), projectedEarnings (tala).`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }],
@@ -153,15 +155,15 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Bíður eftir AI lykli...";
+  if (!ai) return "Bíður eftir lykli...";
   try {
-    const prompt = `Berðu saman sölu á mismunandi verkefnum: ${JSON.stringify(sales)}. Svaraðu á ÍSLENSKU með stuttri greiningu (max 3 línur). Slepptu öllum sérstökum táknum eins og * eða #.`;
+    const prompt = `Berðu saman sölu á mismunandi verkefnum: ${JSON.stringify(sales.slice(0, 50))}. Svaraðu á ÍSLENSKU með stuttri greiningu (max 3 línur).`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
     return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk.";
   } catch (e) {
-    return "Villa við að sækja AI samanburð.";
+    return "Villa við AI samanburð.";
   }
 };
