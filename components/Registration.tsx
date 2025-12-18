@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-// Added ShieldCheck to the imports from lucide-react
 import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck } from 'lucide-react';
 
 interface RegistrationProps {
@@ -115,7 +114,7 @@ const Registration: React.FC<RegistrationProps> = ({
       notes: vaktData.notes,
       managerNotes: vaktData.managerNotes,
       projectName: vaktData.projectName,
-      userId: '' // Handled in App.tsx
+      userId: '' 
     });
   };
 
@@ -128,7 +127,7 @@ const Registration: React.FC<RegistrationProps> = ({
       timestamp: new Date().toISOString(),
       amount: saleData.amount,
       project: saleData.project,
-      userId: '' // Handled in App.tsx
+      userId: '' 
     });
     setSaleData({ ...saleData, amount: 0 });
   };
@@ -145,24 +144,12 @@ const Registration: React.FC<RegistrationProps> = ({
             
             {/* Quick Add Buttons */}
             <div className="flex flex-col gap-3 mb-8">
-              <button 
-                onClick={() => handleQuickAdd('hringurinn')}
-                className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-indigo-500/30 transition-all group"
-              >
-                <div className="text-left">
-                  <p className="text-xs font-black text-white uppercase tracking-tighter">Hringurinn</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (6+2)</p>
-                </div>
+              <button onClick={() => handleQuickAdd('hringurinn')} className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-indigo-500/30 transition-all group">
+                <div className="text-left"><p className="text-xs font-black text-white uppercase tracking-tighter">Hringurinn</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (6+2)</p></div>
                 <Zap size={16} className="text-indigo-400 group-hover:scale-125 transition-transform" />
               </button>
-              <button 
-                onClick={() => handleQuickAdd('verid')}
-                className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-violet-500/30 transition-all group"
-              >
-                <div className="text-left">
-                  <p className="text-xs font-black text-white uppercase tracking-tighter">Verið</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (4+4)</p>
-                </div>
+              <button onClick={() => handleQuickAdd('verid')} className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-violet-500/30 transition-all group">
+                <div className="text-left"><p className="text-xs font-black text-white uppercase tracking-tighter">Verið</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (4+4)</p></div>
                 <Zap size={16} className="text-violet-400 group-hover:scale-125 transition-transform" />
               </button>
             </div>
@@ -188,64 +175,16 @@ const Registration: React.FC<RegistrationProps> = ({
         </div>
       )}
 
-      {/* Metrics Top Section */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <div className="glass p-5 rounded-[32px] border-indigo-500/10">
-          <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Sala dagsins</p>
-          <p className="text-xl font-black text-white">{formatISK(totalSalesToday)} <span className="text-[10px] text-indigo-400 tracking-normal italic">ISK</span></p>
-        </div>
-        <div className="glass p-5 rounded-[32px] border-emerald-500/10">
-          <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Meðaltal / klst</p>
-          <p className="text-xl font-black text-emerald-400">{formatISK(avgPerHour)} <span className="text-[10px] tracking-normal italic">ISK</span></p>
-        </div>
-        <div className="glass p-5 rounded-[32px] border-violet-500/10">
-          <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Fjöldi sala</p>
-          <p className="text-xl font-black text-violet-400">{numSales} <span className="text-[10px] tracking-normal italic">stk</span></p>
-        </div>
-        <div className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden group">
-          <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-[0.2em]">Áætluð lokasala</p>
-          <p className="text-xl font-black text-indigo-400 group-hover:scale-105 transition-transform">{formatISK(projectedFinal)} <span className="text-[10px] tracking-normal italic">ISK</span></p>
-          <TrendingUp className="absolute right-2 bottom-2 text-white/5" size={40} />
-        </div>
-      </div>
-
-      {/* Daily Goal Gauge */}
-      <div className="glass p-6 rounded-[40px] border-white/5 relative overflow-hidden">
-        <div className="flex justify-between items-end mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Vantar í dagsmarkmið</p>
-              <button onClick={() => setIsEditingGoal(!isEditingGoal)} className="text-indigo-400 hover:text-white transition-colors"><Edit3 size={12} /></button>
-            </div>
-            <div className="flex items-center gap-3">
-              {isEditingGoal ? (
-                <div className="flex items-center gap-2">
-                  <input type="number" value={goals.daily} onChange={e => onUpdateGoals({...goals, daily: parseInt(e.target.value) || 0})} onBlur={() => setIsEditingGoal(false)} autoFocus className="bg-white/5 border border-white/10 rounded-lg p-1 text-lg font-black text-white w-32 outline-none" />
-                  <span className="text-xs text-slate-500 font-bold">ISK Markmið</span>
-                </div>
-              ) : (
-                <h4 className="text-xl font-black text-white uppercase tracking-tight">
-                  {formatISK(Math.max(0, goals.daily - totalSalesToday))} ISK 
-                  <span className="text-[10px] text-slate-500 font-bold normal-case tracking-normal ml-2">(af {formatISK(goals.daily)})</span>
-                </h4>
-              )}
-            </div>
-          </div>
-          <span className="text-2xl font-black text-indigo-400 italic">{Math.round(progressPercent)}%</span>
-        </div>
-        <div className="w-full h-4 bg-white/5 rounded-full p-1 border border-white/5 shadow-inner">
-          <div className="h-full gradient-bg rounded-full transition-all duration-1000 ease-out shadow-lg" style={{ width: `${progressPercent}%` }} />
-        </div>
-        {isGoalMet && (
-          <div className="mt-6 flex items-center justify-center gap-3 text-indigo-400 animate-bounce bg-indigo-500/5 py-3 rounded-2xl border border-indigo-500/10">
-            <Trophy size={20} className="text-amber-400" />
-            <span className="text-xs font-black uppercase tracking-[0.2em]">Markmiði náð! Snillingur! 🌟</span>
-          </div>
-        )}
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass p-5 rounded-[32px] border-indigo-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Sala dagsins</p><p className="text-xl font-black text-white">{formatISK(totalSalesToday)}</p></div>
+        <div className="glass p-5 rounded-[32px] border-emerald-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p><p className="text-xl font-black text-emerald-400">{formatISK(avgPerHour)}</p></div>
+        <div className="glass p-5 rounded-[32px] border-violet-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p><p className="text-xl font-black text-violet-400">{numSales}</p></div>
+        <div className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden group"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Áætluð lokasala</p><p className="text-xl font-black text-indigo-400">{formatISK(projectedFinal)}</p></div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Sales Registration Section */}
+        {/* Sales Registration */}
         <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between shadow-2xl relative">
           <div>
             <div className="flex items-center gap-3 mb-8">
@@ -254,90 +193,43 @@ const Registration: React.FC<RegistrationProps> = ({
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-8">
               {PROJECTS.map(p => (
-                <button 
-                  key={p} 
-                  onClick={() => setSaleData({...saleData, project: p})} 
-                  className={`p-3 rounded-2xl border text-[10px] font-black transition-all ${saleData.project === p ? 'gradient-bg text-white border-white/20 shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'}`}
-                >
-                  {p}
-                </button>
+                <button key={p} onClick={() => setSaleData({...saleData, project: p})} className={`p-3 rounded-2xl border text-[10px] font-black transition-all ${saleData.project === p ? 'gradient-bg text-white border-white/20' : 'bg-white/5 border-white/5 text-slate-500'}`}>{p}</button>
               ))}
             </div>
             <form onSubmit={handleAddSale} className="relative">
-              <input type="number" required placeholder="Upphæð..." value={saleData.amount || ''} onChange={e => setSaleData({...saleData, amount: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-white/10 p-7 rounded-[32px] text-4xl font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 pr-32 shadow-inner" />
-              <button type="submit" className="absolute right-3 top-3 bottom-3 px-8 gradient-bg rounded-2xl text-white font-black uppercase text-sm hover:scale-[1.05] active:scale-95 transition-all shadow-xl">Bæta</button>
+              <input type="number" required placeholder="Upphæð..." value={saleData.amount || ''} onChange={e => setSaleData({...saleData, amount: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-white/10 p-7 rounded-[32px] text-4xl font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 pr-32" />
+              <button type="submit" className="absolute right-3 top-3 bottom-3 px-8 gradient-bg rounded-2xl text-white font-black uppercase text-sm">Bæta</button>
             </form>
           </div>
-          <div className="mt-10 space-y-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar border-t border-white/5 pt-6">
-            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Sölulisti dagsins</p>
+          <div className="mt-10 space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
             {todaySales.length > 0 ? [...todaySales].reverse().map(s => (
-              <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-indigo-500/30 transition-all">
-                <div className="flex flex-col">
-                  <span className="font-black text-white uppercase tracking-tighter text-xs">{s.project}</span>
-                  <span className="text-[9px] text-slate-500 font-bold">{new Date(s.timestamp).toLocaleTimeString('is-IS', { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <span className="font-black text-indigo-400 text-sm">{formatISK(s.amount)}</span>
-              </div>
-            )) : <p className="text-center text-slate-700 text-xs py-10 font-bold italic">Engin sala skráð ennþá.</p>}
+              <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5"><div className="flex flex-col"><span className="font-black text-white text-xs">{s.project}</span><span className="text-[9px] text-slate-500">{new Date(s.timestamp).toLocaleTimeString()}</span></div><span className="font-black text-indigo-400 text-sm">{formatISK(s.amount)}</span></div>
+            )) : <p className="text-center text-slate-700 text-xs py-10 font-bold italic">Engin sala skráð.</p>}
           </div>
         </div>
 
-        {/* Shift Summary & Manager Area */}
+        {/* Shift Details & Manager Notes */}
         <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden">
-          {userRole === 'manager' && (
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <ShieldCheck size={100} className="text-[#d4af37]" />
-            </div>
-          )}
+          {userRole === 'manager' && <ShieldCheck size={80} className="absolute top-0 right-0 p-4 opacity-5 text-[#d4af37]" />}
           <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-2xl bg-violet-500/10 text-violet-400"><Clock size={24} /></div>
               <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Vaktaupplýsingar</h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
-                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Dagvinna</p>
-                <p className="text-3xl font-black text-white">{vaktData.dayHours}<span className="text-sm opacity-50 ml-1">h</span></p>
-              </div>
-              <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
-                <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-2">Eftirvinna</p>
-                <p className="text-3xl font-black text-white">{vaktData.eveningHours}<span className="text-sm opacity-50 ml-1">h</span></p>
-              </div>
+              <div className="p-6 bg-white/5 rounded-3xl border border-white/5"><p className="text-[10px] font-black text-indigo-400 uppercase mb-2">Dagvinna</p><p className="text-3xl font-black text-white">{vaktData.dayHours}h</p></div>
+              <div className="p-6 bg-white/5 rounded-3xl border border-white/5"><p className="text-[10px] font-black text-violet-400 uppercase mb-2">Eftirvinna</p><p className="text-3xl font-black text-white">{vaktData.eveningHours}h</p></div>
             </div>
-            
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  Teymi: {vaktData.projectName}
-                </label>
-                <textarea 
-                  rows={2} 
-                  value={vaktData.notes} 
-                  onChange={e => setVaktData({...vaktData, notes: e.target.value})} 
-                  className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
-                  placeholder="Lýsing á vaktinni..." 
-                />
-              </div>
-
+              <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase">Teymi: {vaktData.projectName}</label><textarea rows={2} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Lýsing..." /></div>
               {userRole === 'manager' && (
-                <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-300">
-                  <label className="text-[10px] font-black text-[#d4af37] uppercase tracking-widest flex items-center gap-2">
-                    <BookOpen size={12} /> Stjórnanda Athugasemdir (Teymisyfirlit)
-                  </label>
-                  <textarea 
-                    rows={3} 
-                    value={vaktData.managerNotes} 
-                    onChange={e => setVaktData({...vaktData, managerNotes: e.target.value})} 
-                    className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 p-5 rounded-3xl text-[#d4af37] text-xs outline-none focus:ring-2 focus:ring-[#d4af37] shadow-inner font-medium placeholder:text-[#d4af37]/40" 
-                    placeholder="Skráðu t.d. mætingu teymis, sölustemningu eða áskoranir..." 
-                  />
-                </div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-[#d4af37] uppercase flex items-center gap-2"><BookOpen size={12} /> Stjórnanda Athugasemdir</label><textarea rows={3} value={vaktData.managerNotes} onChange={e => setVaktData({...vaktData, managerNotes: e.target.value})} className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 p-5 rounded-3xl text-[#d4af37] text-xs outline-none focus:ring-2 focus:ring-[#d4af37] placeholder:text-[#d4af37]/40" placeholder="Skráðu athugasemdir um vaktina eða teymið..." /></div>
               )}
             </div>
           </div>
           <div className="flex gap-4 mt-10">
-            <button onClick={() => setShowPopup(true)} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-[24px] text-slate-400 font-black text-xs uppercase tracking-widest transition-all border border-white/5">Breyta Tíma</button>
-            <button onClick={handleSaveShift} className="flex-1 py-5 gradient-bg rounded-[24px] text-white font-black text-xs uppercase tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95">Ljúka og Vista</button>
+            <button onClick={() => setShowPopup(true)} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-[24px] text-slate-400 font-black text-xs uppercase transition-all">Breyta Tíma</button>
+            <button onClick={handleSaveShift} className="flex-1 py-5 gradient-bg rounded-[24px] text-white font-black text-xs uppercase shadow-2xl">Vista Vakt</button>
           </div>
         </div>
       </div>

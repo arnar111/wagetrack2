@@ -1,15 +1,16 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, ScatterChart, Scatter, ZAxis
 } from 'recharts';
 import { Shift, Sale, User, WageSummary } from '../types';
 import { 
-  TrendingUp, Users, Target, Filter, Zap, 
-  ArrowUpRight, Users2, Layers, ShieldCheck, User as UserIcon, 
-  Trophy, Activity, ChevronRight, BarChart4, LayoutGrid, List
+  TrendingUp, Users, Target, Zap, 
+  ShieldCheck, User as UserIcon, 
+  Trophy, Activity, Layers, BarChart4, LayoutGrid, BrainCircuit, Star, List
 } from 'lucide-react';
-import { getProjectMomentum, ProjectMomentum } from '../utils/managerAnalytics.ts';
+import { getProjectMomentum, ProjectMomentum, calculateTeamMetrics } from '../utils/managerAnalytics.ts';
+import { getManagerAIGuidance } from '../geminiService.ts';
 
 interface ManagerDashboardProps {
   allShifts: Shift[];
@@ -21,16 +22,29 @@ interface ManagerDashboardProps {
 
 const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales, allUsers, currentUser, personalSummary }) => {
   const [viewMode, setViewMode] = useState<'team' | 'personal'>('team');
-  const [projectFilter, setProjectFilter] = useState<'All' | 'Hringurinn' | 'Verið'>('All');
   const [momentum, setMomentum] = useState<ProjectMomentum | null>(null);
+  const [aiGuidance, setAiGuidance] = useState<{ topOpportunity: string; agentToWatch: string } | null>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+
+  const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
 
   useEffect(() => {
     setMomentum(getProjectMomentum(allShifts, allSales));
   }, [allShifts, allSales]);
 
-  const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
+  useEffect(() => {
+    const fetchAI = async () => {
+      setIsLoadingAI(true);
+      const guidance = await getManagerAIGuidance({
+        projectStats: efficiencyMatrix,
+        leaderboard: teamMetrics.slice(0, 5)
+      });
+      setAiGuidance(guidance);
+      setIsLoadingAI(false);
+    };
+    if (viewMode === 'team' && allSales.length > 0) fetchAI();
+  }, [allSales, viewMode]);
 
-  // Efficiency Matrix Logic
   const efficiencyMatrix = useMemo(() => {
     const projects = ['Hringurinn', 'Verið'];
     return projects.map(p => {
@@ -38,8 +52,6 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       const pShifts = allShifts.filter(s => s.projectName === p);
       const totalSales = pSales.reduce((acc, s) => acc + s.amount, 0);
       const totalHours = pShifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
-      
-      // Effective Hours = Total - 12.5% breaks
       const effectiveHours = totalHours * 0.875;
       const salesPerEffHour = effectiveHours > 0 ? totalSales / effectiveHours : 0;
       const agentCount = new Set(pShifts.map(s => s.userId)).size;
@@ -47,34 +59,28 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       return {
         name: p,
         totalSales,
+        totalHours,
         salesPerEffHour: Math.round(salesPerEffHour),
         agentCount
       };
     });
   }, [allSales, allShifts]);
 
-  // Threshold Leaderboard Logic (Privacy-First: Achievement %)
-  const leaderboard = useMemo(() => {
-    return allUsers.filter(u => u.role === 'agent').map(u => {
-      const uSales = allSales.filter(s => s.userId === u.staffId);
-      const uShifts = allShifts.filter(s => s.userId === u.staffId);
-      const totalSales = uSales.reduce((acc, s) => acc + s.amount, 0);
-      const totalHours = uShifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
-      
-      // 636 ISK threshold per effective hour
-      const threshold = (totalHours * 0.875) * 636;
-      const achievement = threshold > 0 ? (totalSales / threshold) * 100 : 0;
+  const teamMetrics = useMemo(() => calculateTeamMetrics(allUsers, allShifts, allSales), [allUsers, allShifts, allSales]);
 
-      return {
-        name: u.name,
-        team: u.team || 'Other',
-        achievement: Math.round(achievement),
-        isQualified: achievement >= 100
-      };
-    }).sort((a, b) => b.achievement - a.achievement);
-  }, [allUsers, allSales, allShifts]);
+  const avgAchievement = teamMetrics.length > 0 
+    ? teamMetrics.reduce((acc, m) => acc + m.achievement, 0) / teamMetrics.length 
+    : 0;
 
-  // Coach Bonus Progress
+  const topProject = efficiencyMatrix.sort((a, b) => b.salesPerEffHour - a.salesPerEffHour)[0];
+
+  const scatterData = teamMetrics.map(m => ({
+    x: m.totalHours,
+    y: m.totalSales,
+    name: m.name,
+    achievement: m.achievement
+  }));
+
   const coachBonusProgress = useMemo(() => {
     const threshold = (personalSummary.totalHours * 0.875) * 636;
     return threshold > 0 ? (personalSummary.totalSales / threshold) * 100 : 0;
@@ -82,13 +88,13 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
 
   return (
     <div className="space-y-8 pb-32 font-sans animate-in fade-in duration-700">
-      {/* View Switcher Header */}
+      {/* Header & Controls */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
           <h2 className="text-3xl font-black text-[#d4af37] italic uppercase tracking-tighter flex items-center gap-3">
-            <ShieldCheck size={32} /> Manager Command Center
+            <ShieldCheck size={32} /> Command Center
           </h2>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Elite Strategic Oversight</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Team Strategy & Performance Matrix</p>
         </div>
         
         <div className="flex bg-[#0f172a] p-1.5 rounded-[24px] border border-white/5 shadow-2xl">
@@ -96,7 +102,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
             onClick={() => setViewMode('team')}
             className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === 'team' ? 'bg-[#d4af37] text-slate-900 shadow-lg' : 'text-slate-500 hover:text-white'}`}
           >
-            <Users size={16} /> Team Overview
+            <Users size={16} /> Team Oversight
           </button>
           <button 
             onClick={() => setViewMode('personal')}
@@ -108,98 +114,161 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       </div>
 
       {viewMode === 'team' ? (
-        <div className="space-y-8">
-          {/* Key Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="glass p-6 rounded-[32px] border-[#d4af37]/20 bg-gradient-to-br from-[#d4af37]/5 to-transparent">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Team Revenue</p>
-              <h4 className="text-2xl font-black text-white italic">{formatISK(allSales.reduce((acc, s) => acc + s.amount, 0))} <span className="text-[10px] opacity-40 not-italic">ISK</span></h4>
+        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+          {/* KPI Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="glass p-8 rounded-[40px] border-[#d4af37]/20 bg-gradient-to-br from-[#d4af37]/5 to-transparent relative overflow-hidden">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Team Revenue</p>
+              <h4 className="text-4xl font-black text-white italic tracking-tighter">{formatISK(allSales.reduce((acc, s) => acc + s.amount, 0))}</h4>
+              <p className="text-[8px] font-bold text-[#d4af37] uppercase mt-2">Active Month Total</p>
+              <Activity className="absolute bottom-4 right-4 text-[#d4af37]/10" size={60} />
             </div>
-            <div className="glass p-6 rounded-[32px] border-indigo-500/20">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Top Efficiency</p>
-              <h4 className="text-2xl font-black text-[#d4af37] italic">{formatISK(Math.max(...efficiencyMatrix.map(m => m.salesPerEffHour)))} <span className="text-[10px] opacity-40 not-italic">/hr</span></h4>
+            <div className="glass p-8 rounded-[40px] border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Avg. Achievement</p>
+              <h4 className="text-4xl font-black text-white italic tracking-tighter">{Math.round(avgAchievement)}%</h4>
+              <p className="text-[8px] font-bold text-emerald-400 uppercase mt-2">636 ISK/hr Efficiency</p>
+              <Target className="absolute bottom-4 right-4 text-emerald-400/10" size={60} />
             </div>
-            <div className="glass p-6 rounded-[32px] border-emerald-500/20">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Qualified Agents</p>
-              <h4 className="text-2xl font-black text-emerald-400 italic">{leaderboard.filter(l => l.isQualified).length} <span className="text-[10px] opacity-40 not-italic">Units</span></h4>
-            </div>
-            <div className="glass p-6 rounded-[32px] border-violet-500/20">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Project Momentum</p>
-              <h4 className="text-2xl font-black text-violet-400 italic">
-                {momentum?.hringurinn && momentum?.verid ? (momentum.hringurinn > momentum.verid ? 'Hringurinn' : 'Verið') : 'Bíð gagna'}
-              </h4>
+            <div className="glass p-8 rounded-[40px] border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-transparent relative overflow-hidden">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Top Project</p>
+              <h4 className="text-4xl font-black text-[#d4af37] italic tracking-tighter">{topProject?.name || "Bíð gagna"}</h4>
+              <p className="text-[8px] font-bold text-violet-400 uppercase mt-2">{formatISK(topProject?.salesPerEffHour || 0)} per hour</p>
+              <Layers className="absolute bottom-4 right-4 text-violet-400/10" size={60} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {/* Efficiency Matrix Matrix */}
-            <div className="glass p-8 rounded-[48px] border-white/5 shadow-2xl relative overflow-hidden min-h-[400px]">
-              <div className="absolute top-0 right-0 p-12 opacity-5">
-                <LayoutGrid size={150} />
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Project Battle Bar Chart */}
+            <div className="glass p-8 rounded-[48px] border-white/5 shadow-2xl relative overflow-hidden h-[450px]">
               <div className="flex items-center gap-3 mb-10">
-                <Layers className="text-[#d4af37]" size={20} />
-                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Project Efficiency Matrix</h3>
+                <BarChart4 className="text-[#d4af37]" size={20} />
+                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Project Battle: Sales vs Hours</h3>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={efficiencyMatrix} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 900}} />
+                    <YAxis hide />
+                    <Tooltip 
+                      cursor={{fill: 'rgba(255,255,255,0.02)'}}
+                      contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                    <Legend iconType="circle" />
+                    <Bar dataKey="totalSales" name="Total Sales" fill="#d4af37" radius={[10, 10, 0, 0]} />
+                    <Bar dataKey="totalHours" name="Total Hours" fill="#6366f1" radius={[10, 10, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Efficiency Scatter Plot */}
+            <div className="glass p-8 rounded-[48px] border-white/5 shadow-2xl relative overflow-hidden h-[450px]">
+              <div className="flex items-center gap-3 mb-10">
+                <LayoutGrid className="text-indigo-400" size={20} />
+                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Effort vs. Efficiency Matrix</h3>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.05)" />
+                    <XAxis type="number" dataKey="x" name="Hours" unit="h" axisLine={false} tick={{fill: '#475569', fontSize: 10}} />
+                    <YAxis type="number" dataKey="y" name="Sales" unit="kr" axisLine={false} tick={{fill: '#475569', fontSize: 10}} />
+                    <ZAxis type="number" dataKey="achievement" range={[50, 400]} name="Achievement" unit="%" />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                    <Scatter name="Agents" data={scatterData}>
+                      {scatterData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.achievement >= 100 ? '#10b981' : '#d4af37'} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="absolute bottom-6 right-8 flex gap-4">
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> <span className="text-[8px] font-black uppercase text-slate-500">Qualified</span></div>
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#d4af37]" /> <span className="text-[8px] font-black uppercase text-slate-500">Developing</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            {/* AI Strategy Widget */}
+            <div className="xl:col-span-4 glass p-8 rounded-[40px] border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 to-transparent flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-8">
+                  <BrainCircuit className="text-indigo-400" size={24} />
+                  <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">AI Strategy Engine</h3>
+                </div>
+                {isLoadingAI ? (
+                  <div className="space-y-4">
+                    <div className="h-6 w-full bg-white/5 animate-pulse rounded-full" />
+                    <div className="h-4 w-5/6 bg-white/5 animate-pulse rounded-full" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="p-5 bg-white/5 rounded-3xl border border-white/5">
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Star size={10} /> Project Opportunity</p>
+                      <p className="text-sm font-bold text-white leading-relaxed italic">"{aiGuidance?.topOpportunity}"</p>
+                    </div>
+                    <div className="p-5 bg-white/5 rounded-3xl border border-white/5">
+                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2"><TrendingUp size={10} /> Agent to Watch</p>
+                      <p className="text-sm font-bold text-white leading-relaxed italic">"{aiGuidance?.agentToWatch}"</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-8 text-center italic">Calculated using neural analysis of real-time team flow</p>
+            </div>
+
+            {/* Live Agent Table */}
+            <div className="xl:col-span-8 glass p-8 rounded-[40px] border-white/5 shadow-2xl">
+              <div className="flex items-center gap-3 mb-10">
+                <List className="text-[#d4af37]" size={20} />
+                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Live Agent Performance Index</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-white/5">
-                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Project</th>
-                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Revenue</th>
-                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Sales / Eff.Hr</th>
-                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Agents</th>
+                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Agent</th>
+                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Achievement %</th>
+                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Bonus</th>
+                      <th className="pb-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Real-Time Wage</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {efficiencyMatrix.map(m => (
-                      <tr key={m.name} className="group hover:bg-white/2 transition-all">
+                    {teamMetrics.map(m => (
+                      <tr key={m.staffId} className="group hover:bg-white/2 transition-all">
                         <td className="py-6">
-                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${m.name === 'Hringurinn' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-violet-500/10 text-violet-400'}`}>
-                            {m.name}
-                          </span>
+                          <div className="flex items-center gap-4">
+                            <div className="h-8 w-8 rounded-xl bg-[#d4af37]/10 flex items-center justify-center font-black text-[#d4af37] text-[10px]">{m.name.charAt(0)}</div>
+                            <div>
+                              <p className="text-sm font-black text-white">{m.name}</p>
+                              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{m.team}</p>
+                            </div>
+                          </div>
                         </td>
-                        <td className="py-6 font-black text-white text-sm">{formatISK(m.totalSales)}</td>
-                        <td className="py-6 font-black text-[#d4af37] text-sm">{formatISK(m.salesPerEffHour)}</td>
-                        <td className="py-6 font-black text-slate-500 text-sm">{m.agentCount}</td>
+                        <td className="py-6">
+                           <div className="flex items-center gap-3">
+                             <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                               <div className={`h-full transition-all duration-1000 ${m.achievement >= 100 ? 'bg-emerald-500' : 'bg-[#d4af37]'}`} style={{ width: `${Math.min(100, m.achievement)}%` }} />
+                             </div>
+                             <span className={`text-xs font-black ${m.achievement >= 100 ? 'text-emerald-400' : 'text-white'}`}>{m.achievement}%</span>
+                           </div>
+                        </td>
+                        <td className="py-6 font-black text-white text-sm">{formatISK(m.bonus)}</td>
+                        <td className="py-6 font-black text-[#d4af37] text-sm italic">{formatISK(m.hourlyWage)} <span className="text-[8px] not-italic opacity-40">/ hr</span></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-
-            {/* Privacy-First Leaderboard */}
-            <div className="glass p-8 rounded-[48px] border-white/5 shadow-2xl">
-              <div className="flex items-center gap-3 mb-10">
-                <Trophy className="text-[#d4af37]" size={20} />
-                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter">Threshold Achievement Board</h3>
-              </div>
-              <div className="space-y-4 max-h-[450px] overflow-y-auto pr-4 custom-scrollbar">
-                {leaderboard.map((agent, idx) => (
-                  <div key={agent.name} className="p-5 bg-white/2 rounded-3xl border border-white/5 flex items-center justify-between hover:border-[#d4af37]/40 transition-all group">
-                    <div className="flex items-center gap-5">
-                      <span className="text-xs font-black text-slate-700 w-6">#{idx + 1}</span>
-                      <div>
-                        <p className="text-sm font-black text-white group-hover:text-[#d4af37] transition-colors">{agent.name}</p>
-                        <p className={`text-[9px] font-bold uppercase tracking-widest ${agent.team === 'Hringurinn' ? 'text-indigo-500/60' : 'text-violet-500/60'}`}>{agent.team}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-xl font-black italic tracking-tighter leading-none ${agent.achievement >= 100 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {agent.achievement}%
-                      </p>
-                      <p className="text-[8px] font-black text-slate-700 uppercase mt-1">Goal: 636/Hr</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       ) : (
         <div className="animate-in slide-in-from-right-10 duration-500 space-y-8">
-          {/* Playing Coach Profile */}
+          {/* Playing Coach Profile (Existing Logic) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-8 glass p-10 rounded-[56px] border-[#d4af37]/30 bg-gradient-to-br from-[#d4af37]/10 to-transparent relative overflow-hidden">
                <div className="absolute top-0 right-0 p-12 opacity-5">
@@ -208,14 +277,6 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                
                <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
                  <div className="relative h-48 w-48 flex items-center justify-center">
-                    {/* Recharts Pie for Circular Gauge */}
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[{v: coachBonusProgress}]}>
-                        <Bar dataKey="v" fill="#d4af37" radius={[20, 20, 20, 20]} />
-                        <XAxis hide />
-                        <YAxis domain={[0, 100]} hide />
-                      </BarChart>
-                    </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <h5 className="text-5xl font-black text-white italic tracking-tighter">{Math.round(coachBonusProgress)}%</h5>
                       <p className="text-[10px] font-black text-slate-500 uppercase mt-2">Personal Bonus</p>
@@ -247,7 +308,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                     <Zap className="text-emerald-400" size={32} />
                   </div>
                   <h4 className="text-xl font-black text-white italic uppercase tracking-tighter">High Output Mode</h4>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2">Personal Efficiency: {personalSummary.totalHours > 0 ? formatISK(personalSummary.totalSales / personalSummary.totalHours) : 0} / hr</p>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2">Personal Efficiency: {personalSummary.totalHours > 0 ? formatISK(personalSummary.totalSales / (personalSummary.totalHours * 0.875)) : 0} / eff.hr</p>
                </div>
                <div className="glass p-8 rounded-[40px] border-indigo-500/20 text-center">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Team Sentiment</p>
