@@ -1,5 +1,5 @@
 
-import { WageSettings, User } from './types';
+import { WageSettings } from './types';
 
 export const DEFAULT_WAGE_SETTINGS: WageSettings = {
   dayRate: 2724.88,
@@ -13,10 +13,6 @@ export const DEFAULT_WAGE_SETTINGS: WageSettings = {
 
 // Notum myndina sem notandinn hlóð upp
 export const LOGO_URL = "./image.png";
-
-export const USERS: User[] = [
-  { id: '1', name: 'Addi', staffId: '570' }
-];
 
 export const PROJECTS = [
   "Samhjálp", 

@@ -1,5 +1,7 @@
 
 import React, { useState } from 'react';
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase.ts';
 import { User } from '../types.ts';
 import { UserPlus, Users, Trash2, ShieldAlert } from 'lucide-react';
 
@@ -8,11 +10,12 @@ interface AdminProps {
   onUpdateUsers: (users: User[]) => void;
 }
 
-const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
+const Admin: React.FC<AdminProps> = ({ users }) => {
   const [name, setName] = useState('');
   const [staffId, setStaffId] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = staffId.trim();
     if (!name || cleanId.length !== 3) {
@@ -20,31 +23,43 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
       return;
     }
 
-    // Athugum hvort ID sé þegar til - Berum saman sem trimmaða strengi
-    if (users.find(u => String(u.staffId).trim() === cleanId)) {
-      alert("Þetta númer er þegar í notkun!");
-      return;
+    setLoading(true);
+    try {
+      // Check if ID already exists
+      const q = query(collection(db, "users"), where("staffId", "==", cleanId));
+      const existing = await getDocs(q);
+      
+      if (!existing.empty) {
+        alert("Þetta númer er þegar í notkun!");
+        return;
+      }
+
+      await addDoc(collection(db, "users"), {
+        name: name.trim(),
+        staffId: cleanId
+      });
+
+      setName('');
+      setStaffId('');
+    } catch (err) {
+      console.error(err);
+      alert("Villa við að vista notanda.");
+    } finally {
+      setLoading(false);
     }
-
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: name.trim(),
-      staffId: cleanId // Vistað sem strengur (t.d. "007")
-    };
-
-    onUpdateUsers([...users, newUser]);
-    setName('');
-    setStaffId('');
   };
 
-  const handleDeleteUser = (id: string) => {
-    const userToDelete = users.find(u => u.id === id);
-    if (userToDelete && String(userToDelete.staffId).trim() === '570') {
+  const handleDeleteUser = async (id: string, staffId: string) => {
+    if (String(staffId).trim() === '570') {
       alert("Ekki hægt að eyða aðal admin!");
       return;
     }
-    if (confirm(`Ertu viss um að þú viljir eyða ${userToDelete?.name}?`)) {
-      onUpdateUsers(users.filter(u => u.id !== id));
+    if (confirm(`Ertu viss um að þú viljir eyða þessum starfsmanni?`)) {
+      try {
+        await deleteDoc(doc(db, "users", id));
+      } catch (err) {
+        alert("Villa við að eyða notanda.");
+      }
     }
   };
 
@@ -67,6 +82,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
             <input 
               type="text" 
               value={name} 
+              disabled={loading}
               onChange={e => setName(e.target.value)}
               placeholder="Nafn starfsmanns"
               className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
@@ -79,6 +95,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
               type="text" 
               inputMode="numeric"
               maxLength={3}
+              disabled={loading}
               value={staffId} 
               onChange={e => setStaffId(e.target.value.replace(/\D/g, ''))}
               placeholder="000"
@@ -88,9 +105,10 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
           </div>
           <button 
             type="submit" 
-            className="gradient-bg py-4 rounded-2xl text-white font-black uppercase text-xs tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
+            disabled={loading}
+            className="gradient-bg py-4 rounded-2xl text-white font-black uppercase text-xs tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
           >
-            Skrá notanda
+            {loading ? "Vistar..." : "Skrá notanda"}
           </button>
         </form>
       </div>
@@ -116,7 +134,7 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
                 </div>
               </div>
               <button 
-                onClick={() => handleDeleteUser(u.id)}
+                onClick={() => handleDeleteUser(u.id, u.staffId)}
                 className={`p-3 rounded-xl transition-all ${String(u.staffId).trim() === '570' ? 'opacity-20 cursor-not-allowed text-slate-500' : 'text-slate-600 hover:bg-rose-500/10 hover:text-rose-500'}`}
                 disabled={String(u.staffId).trim() === '570'}
               >
@@ -127,10 +145,10 @@ const Admin: React.FC<AdminProps> = ({ users, onUpdateUsers }) => {
         </div>
       </div>
       
-      <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/10 flex items-start gap-4">
-        <ShieldAlert className="text-amber-500 shrink-0" size={20} />
-        <p className="text-[10px] font-bold text-amber-500/80 uppercase leading-relaxed tracking-wider">
-          Aðvörun: Kerfið vistar notendur í vafranum. Ef þú hreinsar "Browser Cache" munu nýir notendur hverfa.
+      <div className="p-6 bg-indigo-500/5 rounded-3xl border border-indigo-500/10 flex items-start gap-4">
+        <ShieldAlert className="text-indigo-500 shrink-0" size={20} />
+        <p className="text-[10px] font-bold text-indigo-500/80 uppercase leading-relaxed tracking-wider">
+          Allar breytingar hér verða sýnilegar öllum tækjum í rauntíma gegnum Cloud Firestore.
         </p>
       </div>
     </div>

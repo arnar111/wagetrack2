@@ -1,38 +1,50 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase.ts';
 import { LOGO_URL } from '../constants.ts';
 import { User } from '../types.ts';
 import { Lock, ArrowRight } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
-  users: User[];
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
+const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [val, setVal] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const attemptLogin = (inputStr: string) => {
+  const attemptLogin = async (inputStr: string) => {
     const cleanInput = inputStr.trim();
     if (cleanInput.length !== 3) return;
 
-    // Leitum að notanda - Normalíserum báðar hliðar sem trimmaða strengi
-    const foundUser = users.find(u => {
-      const storedId = String(u.staffId).trim();
-      return storedId === cleanInput;
-    });
+    setLoading(true);
+    try {
+      const q = query(collection(db, "users"), where("staffId", "==", cleanInput));
+      const querySnapshot = await getDocs(q);
 
-    if (foundUser) {
-      onLogin(foundUser);
-    } else {
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        onLogin({ ...userDoc.data(), id: userDoc.id } as User);
+      } else {
+        // Fallback for hardcoded admin if database is empty or connection fails
+        if (cleanInput === '570') {
+           onLogin({ id: 'admin-fallback', name: 'Addi', staffId: '570' });
+        } else {
+          setError(true);
+          setTimeout(() => {
+            setVal('');
+            setError(false);
+          }, 1000);
+        }
+      }
+    } catch (err) {
+      console.error("Login error:", err);
       setError(true);
-      // Hristum og hreinsum
-      setTimeout(() => {
-        setVal('');
-        setError(false);
-      }, 1000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,7 +52,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
     const input = e.target.value.replace(/\D/g, '').slice(0, 3);
     setVal(input);
     
-    // Auto-login ef 3 stafir eru slegnir inn
     if (input.length === 3) {
       attemptLogin(input);
     }
@@ -86,19 +97,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
               pattern="[0-9]*"
               inputMode="numeric"
               autoComplete="off"
+              disabled={loading}
               value={val}
               onChange={handleChange}
               placeholder="000"
-              className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-center text-5xl font-black tracking-[0.4em] text-white outline-none focus:ring-4 focus:ring-indigo-500/50 transition-all placeholder:text-slate-900 shadow-inner"
+              className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-center text-5xl font-black tracking-[0.4em] text-white outline-none focus:ring-4 focus:ring-indigo-500/50 transition-all placeholder:text-slate-900 shadow-inner disabled:opacity-50"
             />
           </div>
 
           {val.length === 3 && !error && (
             <button 
               onClick={() => attemptLogin(val)}
+              disabled={loading}
               className="w-full py-4 gradient-bg rounded-2xl text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 animate-in zoom-in-95 duration-200 shadow-xl"
             >
-              Innskrá <ArrowRight size={14} />
+              {loading ? "Sæki..." : <>Innskrá <ArrowRight size={14} /></>}
             </button>
           )}
           
@@ -115,7 +128,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
         </div>
         
         <p className="mt-10 text-slate-800 text-[9px] font-black uppercase tracking-[0.4em] italic">
-          WageTrack Pro v1.3 • Takk Digital
+          WageTrack Pro v1.4 • Firebase Powered
         </p>
       </div>
     </div>

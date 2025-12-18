@@ -14,8 +14,21 @@ import {
   PieChart,
   ShieldCheck
 } from 'lucide-react';
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  addDoc, 
+  deleteDoc, 
+  updateDoc,
+  orderBy
+} from 'firebase/firestore';
+import { db } from './firebase.ts';
 import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
-import { DEFAULT_WAGE_SETTINGS, LOGO_URL, USERS as INITIAL_USERS } from './constants.ts';
+import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
 import { getWageInsights } from './geminiService.ts';
 import Dashboard from './components/Dashboard.tsx';
@@ -40,75 +53,108 @@ const App: React.FC = () => {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   
-  // Notendalisti - Uppfærður lykill v3 til að tryggja nýtt snið
-  const [allUsers, setAllUsers] = useState<User[]>(() => {
-    const savedUsers = localStorage.getItem('takk_users_v3');
-    return savedUsers ? JSON.parse(savedUsers) : INITIAL_USERS;
-  });
+  // Notendalisti fetched in real-time for Admin view
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('takk_users_v3', JSON.stringify(allUsers));
-  }, [allUsers]);
+    const q = query(collection(db, "users"));
+    return onSnapshot(q, (snapshot) => {
+      const users = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as User));
+      setAllUsers(users);
+    });
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1200) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+      setIsSidebarOpen(window.innerWidth > 1200);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Listen to User Data (Shifts, Sales, Config)
   useEffect(() => {
-    if (user) {
-      const savedData = localStorage.getItem(`takk_data_v12_${user.staffId}`);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        setShifts(parsed.shifts || []);
-        setSales(parsed.sales || []);
-        if (parsed.goals) setGoals(parsed.goals);
-        if (parsed.wageSettings) setWageSettings(parsed.wageSettings);
-      }
-    }
-  }, [user]);
+    if (!user) return;
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`takk_data_v12_${user.staffId}`, JSON.stringify({ shifts, sales, goals, wageSettings }));
-    }
-  }, [shifts, sales, goals, user, wageSettings]);
+    // 1. Shifts Listener
+    const shiftsQ = query(
+      collection(db, "shifts"), 
+      where("userId", "==", user.staffId),
+      orderBy("date", "desc")
+    );
+    const unsubShifts = onSnapshot(shiftsQ, (snapshot) => {
+      setShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift)));
+    });
+
+    // 2. Sales Listener
+    const salesQ = query(
+      collection(db, "sales"), 
+      where("userId", "==", user.staffId),
+      orderBy("timestamp", "desc")
+    );
+    const unsubSales = onSnapshot(salesQ, (snapshot) => {
+      setSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale)));
+    });
+
+    // 3. User Config (Goals, Settings) Listener
+    const configRef = doc(db, "user_configs", user.staffId);
+    const unsubConfig = onSnapshot(configRef, (d) => {
+      if (d.exists()) {
+        const data = d.data();
+        if (data.goals) setGoals(data.goals);
+        if (data.wageSettings) setWageSettings(data.wageSettings);
+      }
+    });
+
+    return () => {
+      unsubShifts();
+      unsubSales();
+      unsubConfig();
+    };
+  }, [user]);
 
   const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
 
-  const handleSaveShift = (newShift: Shift) => {
+  const handleSaveShift = async (newShift: Shift) => {
+    if (!user) return;
+    const { id, ...data } = newShift;
+    const shiftData = { ...data, userId: user.staffId };
+
     if (editingShift) {
-      setShifts(prev => prev.map(s => s.id === editingShift.id ? newShift : s));
+      await updateDoc(doc(db, "shifts", id), shiftData);
       setEditingShift(null);
     } else {
-      const exists = shifts.find(s => s.date === newShift.date);
-      if (exists) {
-        setShifts(prev => prev.map(s => s.date === newShift.date ? newShift : s));
+      // Check for existing shift on this date
+      const existing = shifts.find(s => s.date === newShift.date);
+      if (existing) {
+        await updateDoc(doc(db, "shifts", existing.id), shiftData);
       } else {
-        setShifts(prev => [newShift, ...prev]);
+        await addDoc(collection(db, "shifts"), shiftData);
       }
     }
     setActiveTab('dashboard');
   };
 
-  const handleEditShift = (shift: Shift) => {
-    setEditingShift(shift);
-    setActiveTab('register');
+  const handleSaveSale = async (newSale: Sale) => {
+    if (!user) return;
+    const { id, ...data } = newSale;
+    await addDoc(collection(db, "sales"), { ...data, userId: user.staffId });
   };
 
-  const handleSaveSale = (newSale: Sale) => {
-    setSales(prev => [...prev, newSale]);
+  const handleDeleteShift = async (id: string) => {
+    await deleteDoc(doc(db, "shifts", id));
   };
 
-  const handleDeleteShift = (id: string) => {
-    setShifts(prev => prev.filter(s => s.id !== id));
+  const handleUpdateGoals = async (newGoals: Goals) => {
+    if (!user) return;
+    setGoals(newGoals);
+    await setDoc(doc(db, "user_configs", user.staffId), { goals: newGoals }, { merge: true });
+  };
+
+  const handleUpdateSettings = async (newSettings: any) => {
+    if (!user) return;
+    setWageSettings(newSettings);
+    await setDoc(doc(db, "user_configs", user.staffId), { wageSettings: newSettings }, { merge: true });
   };
 
   const triggerAiInsights = async () => {
@@ -119,7 +165,7 @@ const App: React.FC = () => {
     setIsLoadingInsights(false);
   };
 
-  if (!user) return <Login onLogin={setUser} users={allUsers} />;
+  if (!user) return <Login onLogin={setUser} />;
 
   const isAdmin = String(user.staffId) === '570';
 
@@ -231,12 +277,12 @@ const App: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10">
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={setGoals} sales={sales} />}
-            {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={setGoals} />}
+            {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={handleUpdateGoals} sales={sales} />}
+            {activeTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} />}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
-            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={handleEditShift} />}
-            {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={setWageSettings} />}
+            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
+            {activeTab === 'payslip' && <Payslip summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
             {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
             {activeTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
@@ -244,11 +290,11 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center md:text-left">Dagvinna (ISK/klst)</label>
-                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                    <input type="number" value={wageSettings.dayRate} onChange={e => handleUpdateSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center md:text-left">Eftirvinna (ISK/klst)</label>
-                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                    <input type="number" value={wageSettings.eveningRate} onChange={e => handleUpdateSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
                   </div>
                 </div>
               </div>
