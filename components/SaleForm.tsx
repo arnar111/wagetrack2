@@ -17,10 +17,11 @@ const SaleForm: React.FC<SaleFormProps> = ({ onSave }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Fix: Providing all required properties for the Sale interface, including 'project'
+    // Fix: Providing all required properties for the Sale interface, including 'timestamp' and 'project'
     onSave({
       ...formData,
-      id: Math.random().toString(36).substr(2, 9)
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString()
     });
     setFormData({ ...formData, amount: 0 });
   };

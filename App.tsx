@@ -13,34 +13,31 @@ import {
   Mic2,
   PieChart
 } from 'lucide-react';
-import { Shift, WageSummary, User, Sale, Goals } from './types';
-import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants';
-import { calculateWageSummary } from './utils/calculations';
-import { getWageInsights } from './geminiService';
-import Dashboard from './components/Dashboard';
-import Registration from './components/Registration';
-import ShiftList from './components/ShiftList';
-import Payslip from './components/Payslip';
-import Login from './components/Login';
-import SpeechAssistant from './components/SpeechAssistant';
-import ProjectInsights from './components/ProjectInsights';
+import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
+import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants.ts';
+import { calculateWageSummary } from './utils/calculations.ts';
+import { getWageInsights } from './geminiService.ts';
+import Dashboard from './components/Dashboard.tsx';
+import Registration from './components/Registration.tsx';
+import ShiftList from './components/ShiftList.tsx';
+import Payslip from './components/Payslip.tsx';
+import Login from './components/Login.tsx';
+import SpeechAssistant from './components/SpeechAssistant.tsx';
+import ProjectInsights from './components/ProjectInsights.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'register' | 'history' | 'payslip' | 'speech' | 'settings' | 'insights'>('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  // Uppfært: Ný sjálfgefin markmið
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
-  // Sidebar byrjar opinn á stórum skjám (> 1200px) annars lokaður
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1200);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
 
-  // Fylgjast með gluggastærð til að loka/opna hliðarstiku sjálfkrafa
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1200) {
@@ -55,7 +52,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      // Uppfært í v12 til að tryggja nýju markmiðin sem default
       const savedData = localStorage.getItem(`takk_data_v12_${user.staffId}`);
       if (savedData) {
         const parsed = JSON.parse(savedData);
@@ -125,8 +121,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      
-      {/* Skjár-dimming þegar sidebar er opinn á litlum skjám */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] animate-in fade-in duration-300" 
@@ -134,7 +128,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sidebar - Hann er nu annaðhvort alveg sýnilegur eða alveg falinn */}
       <aside 
         className={`
           fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out
@@ -164,7 +157,7 @@ const App: React.FC = () => {
               onClick={() => { 
                 setActiveTab(item.id as any); 
                 if(item.id !== 'register') setEditingShift(null);
-                setIsSidebarOpen(false); // Loka alltaf eftit val til öryggis
+                setIsSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${
                 activeTab === item.id 
@@ -192,10 +185,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Container - Engin vinstri-fylling (padding) því sidebar er alltaf "fixed overlay" núna */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#01040f] relative">
-        
-        {/* Header */}
         <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
           <div className="flex items-center gap-4">
             <button 
@@ -224,7 +214,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* View Content */}
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10">
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {activeTab === 'dashboard' && <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={setGoals} sales={sales} />}
