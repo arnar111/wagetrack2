@@ -2,25 +2,23 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 /**
- * Safely initializes the Google GenAI client.
- * Strictly uses process.env.API_KEY as the exclusive source.
+ * Robust helper to initialize the Google GenAI client.
+ * Looks for the key in process.env.API_KEY (Vite define) or window-level fallback.
  */
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Try multiple sources for the API key
+  const apiKey = process.env.API_KEY || (window as any)._GEMINI_KEY;
   
-  // Debug log (Safe: only first 5 chars for troubleshooting)
-  if (apiKey && apiKey !== 'undefined' && apiKey !== '') {
-    console.log(`✅ AI Key loaded: ${apiKey.substring(0, 5)}...`);
+  if (apiKey && apiKey !== 'undefined' && apiKey !== '' && !apiKey.includes('%VITE')) {
+    try {
+      // Re-initialize for every call if needed to avoid stale instances
+      return new GoogleGenAI({ apiKey });
+    } catch (error) {
+      console.error("❌ Error initializing GoogleGenAI client:", error);
+      return null;
+    }
   } else {
-    console.error("❌ AI Key is missing or invalid in the environment.");
-    return null;
-  }
-
-  try {
-    // Initializing using the required named parameter pattern
-    return new GoogleGenAI({ apiKey });
-  } catch (error) {
-    console.error("❌ Error initializing GoogleGenAI:", error);
+    console.error("❌ Gemini API Key is missing or invalid in the environment.");
     return null;
   }
 };
@@ -32,18 +30,16 @@ export interface SpeechResult {
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
   const ai = getAiClient();
-  if (!ai) return "Vantar API lykil.";
+  if (!ai) return "Vantar API lykil fyrir innsýn.";
 
   try {
     const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${JSON.stringify(shifts)}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
     
-    // Using generateContent directly as required
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }]
     });
 
-    // Accessing .text as a property, not a method
     return response.text?.replace(/[*#]/g, '') || "Engin greining tiltæk að svo stöddu.";
   } catch (e) {
     console.error("Gemini Error (getWageInsights):", e);
@@ -90,7 +86,6 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
       }
     });
 
-    // Accessing .text as a property
     return JSON.parse(response.text || JSON.stringify(fallback));
   } catch (e) {
     console.error("Gemini Error (getSmartDashboardAnalysis):", e);
@@ -162,7 +157,6 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     const text = response.text || "";
     const sources: { title: string; uri: string }[] = [];
     
-    // Extract sources if googleSearch grounding is used
     response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach((chunk: any) => {
       if (chunk.web?.uri) {
         sources.push({ 

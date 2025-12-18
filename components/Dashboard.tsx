@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect, useState } from 'react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -152,8 +151,8 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             </div>
             <BarChart3 className="text-indigo-400 opacity-30" size={24} />
           </div>
-          {/* Added min-h-[300px] to prevent ResponsiveContainer crash during zero-height phases */}
-          <div className="h-[300px] min-h-[300px] w-full">
+          {/* Added h-[300px] and min-h-[300px] to prevent ResponsiveContainer crash during zero-height phases */}
+          <div className="h-[300px] min-h-[300px] w-full" style={{ minHeight: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>

@@ -1,4 +1,3 @@
-
 import { WageSettings } from './types';
 
 export const DEFAULT_WAGE_SETTINGS: WageSettings = {
