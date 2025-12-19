@@ -1,3 +1,5 @@
+
+// Fix: Added missing export default and completed the truncated file content.
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -23,6 +25,16 @@ interface ManagerDashboardProps {
 
 interface TeamGoals {
   monthly: number;
+}
+
+// Added interface for charity stats to fix property access on unknown type
+interface ProjectStat {
+  sales: number;
+  count: number;
+  hours: number;
+  effHours: number;
+  profit: number;
+  isk_per_hour: number;
 }
 
 const Speedometer = ({ value, max, label }: { value: number; max: number; label: string }) => {
@@ -102,7 +114,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
 
   // Derived Charity Metrics
   const charityStats = useMemo(() => {
-    const stats: Record<string, { sales: number; count: number; hours: number; effHours: number; profit: number; isk_per_hour: number }> = {};
+    const stats: Record<string, ProjectStat> = {};
     
     // Aggregate sales per project
     displayData.sales.forEach(s => {
@@ -268,7 +280,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
         {activeTab === 'projects' && (
           <motion.div key="projects" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-               {Object.entries(charityStats).sort((a,b) => b[1].sales - a[1].sales).map(([name, stats]) => (
+               {(Object.entries(charityStats) as [string, ProjectStat][]).sort((a,b) => b[1].sales - a[1].sales).map(([name, stats]) => (
                  <div key={name} className="glass p-10 rounded-[48px] border-white/5 hover:border-[#d4af37]/30 transition-all shadow-2xl relative overflow-hidden group">
                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Heart size={80} /></div>
                    <div className="flex justify-between items-start mb-10">
@@ -308,7 +320,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                            <p className="text-xl font-black text-white italic">{formatISK(stats.profit)}</p>
                          </div>
                          <div className="text-right">
-                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none italic italic">Eftir launakostnað</p>
+                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none italic">Eftir launakostnað</p>
                          </div>
                       </div>
                    </div>
@@ -323,13 +335,13 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                         <div className="p-4 bg-[#d4af37]/20 rounded-3xl text-[#d4af37]"><BrainCircuit size={32} /></div>
                         <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter leading-none italic">AI Greining: Arðsemi & Hagnaður</h3>
                      </div>
-                     <p className="text-lg font-bold text-slate-200 leading-relaxed italic border-l-4 border-[#d4af37] pl-6 py-2 italic">
+                     <p className="text-lg font-bold text-slate-200 leading-relaxed italic border-l-4 border-[#d4af37] pl-6 py-2">
                         "{aiPulse?.strategicAdvice || "Greini árangur félaganna... AI er að reikna hvaða verkefni gefur hæsta hagnaðinn miðað við launakostnað (2724.88 ISK/klst)."}"
                      </p>
                   </div>
                   <div className="h-[350px] w-full md:w-[450px]">
                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={Object.entries(charityStats).map(([name, s]) => ({ name, profit: s.profit }))}>
+                        <BarChart data={(Object.entries(charityStats) as [string, ProjectStat][]).map(([name, s]) => ({ name, profit: s.profit }))}>
                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 900}} />
                            <YAxis hide />
@@ -446,7 +458,9 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
                  className="w-full lg:w-72 bg-white/5 border border-white/10 p-6 pl-14 rounded-[32px] text-white font-black text-3xl outline-none focus:ring-4 focus:ring-[#d4af37]/20 transition-all text-center italic" 
                />
             </div>
-            <button onClick={saveGoals} className="p-7 bg-[#d4af37] text-slate-900 rounded-[32px] font-black shadow-2xl hover:scale-105 active:scale-95 transition-all"><Save size={28} /></button>
+            <button onClick={saveGoals} className="p-7 bg-[#d4af37] text-slate-900 rounded-[32px] font-black shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3">
+              <Save size={24} /> Vista
+            </button>
          </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
@@ -7,7 +6,6 @@ import {
   BrainCircuit,
   FileText,
   Menu,
-  X,
   LogOut,
   Sparkle,
   Mic2,
@@ -25,13 +23,16 @@ import {
   addDoc, 
   deleteDoc, 
   updateDoc,
-  orderBy
+  orderBy,
+  getDocs
 } from 'firebase/firestore';
-import { db } from './firebase.ts';
+import { db, auth } from './firebase.ts';
 import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
 import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
 import { getWageInsights } from './geminiService.ts';
+
+// Components
 import Dashboard from './components/Dashboard.tsx';
 import Registration from './components/Registration.tsx';
 import ShiftList from './components/ShiftList.tsx';
@@ -43,9 +44,13 @@ import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
 
 const App: React.FC = () => {
+  console.log("📦 App Component Rendering...");
+  
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -60,32 +65,65 @@ const App: React.FC = () => {
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
+  // Auth Logic & Role Fetching
   useEffect(() => {
-    const q = query(collection(db, "users"));
-    return onSnapshot(q, (snapshot) => {
-      const users = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as User));
-      setAllUsers(users);
+    console.log("🔍 Initializing Auth Listener...");
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      console.log("🔑 Auth State Changed:", firebaseUser ? `Firebase UID: ${firebaseUser.uid}` : "No Firebase Session");
+      
+      if (firebaseUser) {
+        try {
+          // Attempt session recovery from localStorage first
+          const storedStaffId = localStorage.getItem('takk_last_staff_id');
+          console.log("📡 Attempting to fetch role for user...");
+          
+          let profileQuery;
+          if (storedStaffId) {
+            profileQuery = query(collection(db, "users"), where("staffId", "==", storedStaffId));
+          } else {
+            // Fallback: search by UID if mapped (assuming UID is stored in user doc)
+            profileQuery = query(collection(db, "users"), where("uid", "==", firebaseUser.uid));
+          }
+
+          const snap = await getDocs(profileQuery);
+          if (!snap.empty) {
+            const userData = { ...snap.docs[0].data(), id: snap.docs[0].id } as User;
+            console.log("✅ User Profile Loaded:", userData.name, `(Role: ${userData.role})`);
+            setUser(userData);
+            localStorage.setItem('takk_last_staff_id', userData.staffId);
+          } else if (storedStaffId === '570') {
+            // Admin fallback for fixed ID
+            setUser({ id: 'admin-manual', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
+          } else {
+            console.warn("⚠️ No user profile found in Firestore for this session.");
+            setUser(null);
+          }
+        } catch (err) {
+          console.error("❌ Firestore Profile Fetch Error:", err);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
     });
+    return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth > 1024) setIsSidebarOpen(true);
-      else setIsSidebarOpen(false);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  // Data Listeners
   useEffect(() => {
     if (!user) return;
     
-    // User specific data
+    console.log(`📈 Starting Real-time Listeners for ${user.staffId}...`);
+    
     const shiftsQ = query(collection(db, "shifts"), where("userId", "==", user.staffId), orderBy("date", "desc"));
-    const unsubShifts = onSnapshot(shiftsQ, (snapshot) => setShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
+    const unsubShifts = onSnapshot(shiftsQ, (snapshot) => {
+      setShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift)));
+    });
     
     const salesQ = query(collection(db, "sales"), where("userId", "==", user.staffId), orderBy("timestamp", "desc"));
-    const unsubSales = onSnapshot(salesQ, (snapshot) => setSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
+    const unsubSales = onSnapshot(salesQ, (snapshot) => {
+      setSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale)));
+    });
     
     const configRef = doc(db, "user_configs", user.staffId);
     const unsubConfig = onSnapshot(configRef, (d) => {
@@ -96,63 +134,62 @@ const App: React.FC = () => {
       }
     });
 
-    // Global data for manager
     let unsubAllShifts = () => {};
     let unsubAllSales = () => {};
+    let unsubAllUsers = () => {};
+
     if (user.role === 'manager') {
-      unsubAllShifts = onSnapshot(collection(db, "shifts"), (snapshot) => setAllShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
-      unsubAllSales = onSnapshot(collection(db, "sales"), (snapshot) => setAllSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
+      unsubAllShifts = onSnapshot(collection(db, "shifts"), (snap) => setAllShifts(snap.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
+      unsubAllSales = onSnapshot(collection(db, "sales"), (snap) => setAllSales(snap.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
+      unsubAllUsers = onSnapshot(collection(db, "users"), (snap) => setAllUsers(snap.docs.map(d => ({ ...d.data(), id: d.id } as User))));
     }
 
-    return () => { unsubShifts(); unsubSales(); unsubConfig(); unsubAllShifts(); unsubAllSales(); };
+    return () => { 
+      unsubShifts(); unsubSales(); unsubConfig(); 
+      unsubAllShifts(); unsubAllSales(); unsubAllUsers();
+    };
   }, [user]);
 
   const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
 
-  const handleSaveShift = async (newShift: Shift) => {
-    if (!user) return;
-    const { id, ...data } = newShift;
-    const shiftData = { ...data, userId: user.staffId };
-    if (editingShift) {
-      await updateDoc(doc(db, "shifts", id), shiftData);
-      setEditingShift(null);
-    } else {
-      const existing = shifts.find(s => s.date === newShift.date);
-      if (existing) await updateDoc(doc(db, "shifts", existing.id), shiftData);
-      else await addDoc(collection(db, "shifts"), shiftData);
-    }
-    setActiveTab('dashboard');
-  };
+  // High-Visibility Loading Screen
+  if (loading) {
+    return (
+      <div style={{
+        height: '100vh', 
+        width: '100vw', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: '#01040f', 
+        color: 'white',
+        fontFamily: 'sans-serif'
+      }}>
+        <div style={{
+          width: '50px', 
+          height: '50px', 
+          border: '5px solid rgba(255,255,255,0.1)', 
+          borderTopColor: '#4f46e5', 
+          borderRadius: '50%', 
+          animation: 'spin 1s linear infinite'
+        }} />
+        <h1 style={{ marginTop: '20px', fontWeight: '900', letterSpacing: '-0.05em' }}>CONNECTING TO FIREBASE...</h1>
+        <p style={{ opacity: 0.5, fontSize: '12px', marginTop: '10px' }}>Checking console for debug logs...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
-  const handleSaveSale = async (newSale: Sale) => {
-    if (!user) return;
-    const { id, ...data } = newSale;
-    await addDoc(collection(db, "sales"), { ...data, userId: user.staffId });
-  };
+  // Redirect to Login if no session
+  if (!user) {
+    console.log("🚪 No user session. Showing Login screen.");
+    return <Login onLogin={setUser} />;
+  }
 
-  const handleDeleteShift = async (id: string) => await deleteDoc(doc(db, "shifts", id));
-  const handleUpdateGoals = async (newGoals: Goals) => {
-    if (!user) return;
-    setGoals(newGoals);
-    await setDoc(doc(db, "user_configs", user.staffId), { goals: newGoals }, { merge: true });
-  };
-  const handleUpdateSettings = async (newSettings: any) => {
-    if (!user) return;
-    setWageSettings(newSettings);
-    await setDoc(doc(db, "user_configs", user.staffId), { wageSettings: newSettings }, { merge: true });
-  };
-
-  const triggerAiInsights = async () => {
-    if (shifts.length === 0) return;
-    setIsLoadingInsights(true);
-    const insights = await getWageInsights(shifts, summary);
-    setAiInsights(insights);
-    setIsLoadingInsights(false);
-  };
-
-  if (!user) return <Login onLogin={setUser} />;
-  const isAdmin = String(user.staffId) === '570';
+  // Navigation Items
   const isManager = user.role === 'manager';
+  const isAdmin = String(user.staffId) === '570';
 
   const navItems = [
     ...(isManager ? [{ id: 'manager_dash', icon: <BarChart4 size={20} />, label: 'Command Center' }] : []),
@@ -163,19 +200,17 @@ const App: React.FC = () => {
     { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
     { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
-    ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' }] : []),
+    { id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' },
   ];
 
-  // Route Protection
-  const currentTab = activeTab === 'manager_dash' && !isManager ? 'dashboard' : activeTab;
+  // Logic for default view
+  const currentTab = activeTab === 'dashboard' && isManager ? 'manager_dash' : activeTab;
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      {isSidebarOpen && window.innerWidth <= 1024 && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] animate-in fade-in duration-300" onClick={() => setIsSidebarOpen(false)} />
-      )}
-      <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full'} ${window.innerWidth > 1024 ? 'relative translate-x-0' : 'fixed'} ${!isSidebarOpen && window.innerWidth > 1024 ? '!hidden' : 'flex'}`}>
-        <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center overflow-hidden">
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full'} lg:relative lg:translate-x-0`}>
+        <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center">
           <div className="flex flex-col items-center">
             {!logoError ? (
               <img src={LOGO_URL} alt="TAKK" className="h-24 w-auto invert brightness-[2] mb-3" onError={() => setLogoError(true)} />
@@ -185,10 +220,14 @@ const App: React.FC = () => {
             <h1 className="text-[10px] font-black tracking-[0.3em] text-indigo-400 uppercase italic">WageTrack Pro</h1>
           </div>
         </div>
-        <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
+        <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if(item.id !== 'register') setEditingShift(null); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${currentTab === item.id ? (item.id === 'manager_dash' ? 'bg-[#d4af37] text-slate-900 shadow-lg' : 'gradient-bg text-white shadow-lg shadow-indigo-500/30') : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
-              <span className="shrink-0">{item.icon}</span>
+            <button 
+              key={item.id} 
+              onClick={() => { setActiveTab(item.id); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} 
+              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? (item.id === 'manager_dash' ? 'bg-[#d4af37] text-slate-900 shadow-lg' : 'gradient-bg text-white shadow-lg') : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}
+            >
+              {item.icon}
               <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
             </button>
           ))}
@@ -198,72 +237,72 @@ const App: React.FC = () => {
              <p className={`text-[8px] font-black uppercase tracking-widest ${user.role === 'manager' ? 'text-[#d4af37]' : 'text-indigo-400'}`}>{user.role}</p>
              <p className="text-[10px] font-bold text-white truncate">{user.name}</p>
           </div>
-          <button onClick={() => setUser(null)} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
-            <LogOut size={20} className="shrink-0" />
+          <button onClick={() => { auth.signOut(); localStorage.removeItem('takk_last_staff_id'); }} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
+            <LogOut size={20} />
             <span className="font-bold text-xs uppercase tracking-wider">Skrá út</span>
           </button>
         </div>
       </aside>
+
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#01040f] relative overflow-hidden">
         <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all group"><Menu size={20} /></button>
-            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === currentTab)?.label}</h2>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all"><Menu size={20} /></button>
+            <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === activeTab)?.label}</h2>
           </div>
           <div className="flex items-center gap-3">
-             <button onClick={triggerAiInsights} disabled={isLoadingInsights || shifts.length === 0} className="hidden sm:flex items-center gap-2 px-4 py-2 glass border-indigo-500/30 rounded-full text-[10px] font-black text-indigo-400 hover:bg-indigo-500/10 transition-all disabled:opacity-30">
-               <BrainCircuit size={14} /> {isLoadingInsights ? "Sæki..." : "AI Innsýn"}
-             </button>
              <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20 ${user.role === 'manager' ? 'bg-[#d4af37] text-slate-900' : 'gradient-bg'}`}>{user.name.charAt(0)}</div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-10 pb-32 md:pb-10">
-          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {currentTab === 'manager_dash' && isManager && (
-              <ManagerDashboard 
-                allShifts={allShifts} 
-                allSales={allSales} 
-                allUsers={allUsers}
-                currentUser={user}
-                personalSummary={summary}
-              />
+
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {activeTab === 'manager_dash' && isManager && (
+              <ManagerDashboard allShifts={allShifts} allSales={allSales} allUsers={allUsers} currentUser={user} personalSummary={summary} />
             )}
-            {currentTab === 'dashboard' && (
-              <Dashboard 
-                summary={summary} 
-                shifts={shifts} 
-                aiInsights={aiInsights} 
-                onAddClick={() => setActiveTab('register')} 
-                goals={goals} 
-                onUpdateGoals={handleUpdateGoals} 
-                sales={sales} 
-                staffId={user.staffId} 
-              />
+            {(activeTab === 'dashboard' || (!isManager && activeTab === 'manager_dash')) && (
+              <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} sales={sales} staffId={user.staffId} />
             )}
-            {currentTab === 'register' && <Registration onSaveShift={handleSaveShift} onSaveSale={handleSaveSale} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={handleUpdateGoals} userRole={user.role} />}
-            {currentTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
-            {currentTab === 'speech' && <SpeechAssistant summary={summary} />}
-            {currentTab === 'history' && <ShiftList shifts={shifts} onDelete={handleDeleteShift} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
-            {currentTab === 'payslip' && <Payslip shifts={shifts} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={handleUpdateSettings} />}
-            {currentTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
-            {currentTab === 'settings' && (
+            {activeTab === 'register' && (
+              <Registration onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} userRole={user.role} />
+            )}
+            {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
+            {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
+            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
+            {activeTab === 'payslip' && <Payslip shifts={shifts} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={(s) => setDoc(doc(db, "user_configs", user.staffId), { wageSettings: s }, { merge: true })} />}
+            {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
+            {activeTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
                 <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center">Dagvinna (ISK/klst)</label>
-                    <input type="number" value={wageSettings.dayRate} onChange={e => handleUpdateSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Dagvinna (ISK/klst)</label>
+                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest text-center">Eftirvinna (ISK/klst)</label>
-                    <input type="number" value={wageSettings.eveningRate} onChange={e => handleUpdateSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-center" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Eftirvinna (ISK/klst)</label>
+                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
                   </div>
                 </div>
               </div>
             )}
+            
+            {/* SAFE FALLBACK - No setTimeout here */}
+            {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
+              <div className="text-center py-20 text-slate-500">
+                <p className="mb-4">Óþekkt síða.</p>
+                <button 
+                  onClick={() => setActiveTab('dashboard')}
+                  className="px-4 py-2 bg-indigo-600 rounded-lg text-white font-bold hover:bg-indigo-500 transition-all"
+                >
+                  Fara á mælaborð
+                </button>
+              </div>
+            )}
           </div>
         </main>
-        <MobileDock activeTab={currentTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
+        <MobileDock activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
       </div>
       <Chatbot />
     </div>

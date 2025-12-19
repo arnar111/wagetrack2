@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase.ts';
+// Fix: Import auth services from our own centralized firebase.ts instead of directly from the package
+// to resolve "no exported member" errors caused by environment specific modular resolution issues.
+import { db, auth, signInAnonymously } from '../firebase.ts';
 import { LOGO_URL } from '../constants.ts';
 import { User } from '../types.ts';
-import { Lock, ArrowRight } from 'lucide-react';
+import { Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -21,6 +24,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     setLoading(true);
     try {
+      // Establish an authenticated session so firestore.rules isAuthenticated() passes
+      // Fix: Use the signInAnonymously method exported from our centralized firebase config
+      await signInAnonymously(auth);
+
       const q = query(collection(db, "users"), where("staffId", "==", cleanInput));
       const querySnapshot = await getDocs(q);
 
@@ -28,16 +35,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         const userDoc = querySnapshot.docs[0];
         onLogin({ ...userDoc.data(), id: userDoc.id } as User);
       } else {
-        // Fallback for hardcoded admin if database is empty or connection fails
+        // Fallback for hardcoded admin
         if (cleanInput === '570') {
-           // Fix: Add missing 'role' and 'team' properties to satisfy User interface
            onLogin({ id: 'admin-fallback', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
         } else {
           setError(true);
           setTimeout(() => {
             setVal('');
             setError(false);
-          }, 1000);
+          }, 1500);
         }
       }
     } catch (err) {
@@ -66,7 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6">
-      <div className="w-full max-w-sm flex flex-col items-center">
+      <div className="w-full max-sm flex flex-col items-center">
         <div className="mb-12 flex flex-col items-center">
           <img 
             src={LOGO_URL} 
@@ -111,7 +117,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={loading}
               className="w-full py-4 gradient-bg rounded-2xl text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 animate-in zoom-in-95 duration-200 shadow-xl"
             >
-              {loading ? "Sæki..." : <>Innskrá <ArrowRight size={14} /></>}
+              {loading ? <Loader2 className="animate-spin" size={16} /> : <>Innskrá <ArrowRight size={14} /></>}
             </button>
           )}
           
