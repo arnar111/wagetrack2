@@ -3,12 +3,11 @@ import {
   LayoutDashboard, 
   History, 
   Settings, 
-  BrainCircuit,
+  Mic2,
   FileText,
   Menu,
   LogOut,
   Sparkle,
-  Mic2,
   PieChart,
   ShieldCheck,
   BarChart4
@@ -22,15 +21,13 @@ import {
   setDoc, 
   addDoc, 
   deleteDoc, 
-  updateDoc,
   orderBy,
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from './firebase.ts';
-import { Shift, WageSummary, User, Sale, Goals } from './types.ts';
+import { Shift, User, Sale, Goals } from './types.ts';
 import { DEFAULT_WAGE_SETTINGS, LOGO_URL } from './constants.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
-import { getWageInsights } from './geminiService.ts';
 
 // Components
 import Dashboard from './components/Dashboard.tsx';
@@ -44,7 +41,6 @@ import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
-import ProtectedRoute from './components/ProtectedRoute.tsx';
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
@@ -59,7 +55,6 @@ const App: React.FC = () => {
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
-  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
@@ -73,7 +68,6 @@ const App: React.FC = () => {
       
       if (firebaseUser) {
         try {
-          // Attempt session recovery from localStorage first
           const storedStaffId = localStorage.getItem('takk_last_staff_id');
           console.log("📡 Attempting to fetch role for user...");
           
@@ -81,18 +75,19 @@ const App: React.FC = () => {
           if (storedStaffId) {
             profileQuery = query(collection(db, "users"), where("staffId", "==", storedStaffId));
           } else {
-            // Fallback: search by UID if mapped (assuming UID is stored in user doc)
             profileQuery = query(collection(db, "users"), where("uid", "==", firebaseUser.uid));
           }
 
           const snap = await getDocs(profileQuery);
           if (!snap.empty) {
-            const userData = { ...snap.docs[0].data(), id: snap.docs[0].id } as User;
+            // FIX: Force 'any' type to avoid TS2698 spread error
+            const rawData = snap.docs[0].data() as any;
+            const userData = { ...rawData, id: snap.docs[0].id } as User;
+            
             console.log("✅ User Profile Loaded:", userData.name, `(Role: ${userData.role})`);
             setUser(userData);
             localStorage.setItem('takk_last_staff_id', userData.staffId);
           } else if (storedStaffId === '570') {
-            // Admin fallback for fixed ID
             setUser({ id: 'admin-manual', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
           } else {
             console.warn("⚠️ No user profile found in Firestore for this session.");
@@ -152,7 +147,6 @@ const App: React.FC = () => {
 
   const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
 
-  // High-Visibility Loading Screen
   if (loading) {
     return (
       <div style={{
@@ -175,19 +169,14 @@ const App: React.FC = () => {
           animation: 'spin 1s linear infinite'
         }} />
         <h1 style={{ marginTop: '20px', fontWeight: '900', letterSpacing: '-0.05em' }}>CONNECTING TO FIREBASE...</h1>
-        <p style={{ opacity: 0.5, fontSize: '12px', marginTop: '10px' }}>Checking console for debug logs...</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  // Redirect to Login if no session
   if (!user) {
-    console.log("🚪 No user session. Showing Login screen.");
     return <Login onLogin={setUser} />;
   }
 
-  // Navigation Items
   const isManager = user.role === 'manager';
   const isAdmin = String(user.staffId) === '570';
 
@@ -203,12 +192,8 @@ const App: React.FC = () => {
     { id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' },
   ];
 
-  // Logic for default view
-  const currentTab = activeTab === 'dashboard' && isManager ? 'manager_dash' : activeTab;
-
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full'} lg:relative lg:translate-x-0`}>
         <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center">
           <div className="flex flex-col items-center">
@@ -244,7 +229,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#01040f] relative overflow-hidden">
         <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
           <div className="flex items-center gap-4">
@@ -288,7 +272,7 @@ const App: React.FC = () => {
               </div>
             )}
             
-            {/* SAFE FALLBACK - No setTimeout here */}
+            {/* SAFE FALLBACK - This prevents the crash */}
             {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
               <div className="text-center py-20 text-slate-500">
                 <p className="mb-4">Óþekkt síða.</p>
