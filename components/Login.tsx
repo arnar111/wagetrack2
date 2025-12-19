@@ -1,141 +1,156 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-// Fix: Import auth services from our own centralized firebase.ts instead of directly from the package
-// to resolve "no exported member" errors caused by environment specific modular resolution issues.
-import { db, auth, signInAnonymously } from '../firebase.ts';
-import { LOGO_URL } from '../constants.ts';
-import { User } from '../types.ts';
-import { Lock, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  LogIn, 
+  ShieldCheck, 
+  UserCircle2, 
+  Building2 
+} from 'lucide-react';
+import { signInAnonymously, signInWithPopup, auth, microsoftProvider } from '../firebase';
+import { LOGO_URL } from '../constants';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: any) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [val, setVal] = useState('');
-  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+  const [staffId, setStaffId] = useState('');
+  const [logoError, setLogoError] = useState(false);
 
-  const attemptLogin = async (inputStr: string) => {
-    const cleanInput = inputStr.trim();
-    if (cleanInput.length !== 3) return;
+  const handleManualLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffId.trim()) return;
 
     setLoading(true);
+    setError('');
+
     try {
-      // Establish an authenticated session so firestore.rules isAuthenticated() passes
-      // Fix: Use the signInAnonymously method exported from our centralized firebase config
-      await signInAnonymously(auth);
-
-      const q = query(collection(db, "users"), where("staffId", "==", cleanInput));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        onLogin({ ...userDoc.data(), id: userDoc.id } as User);
-      } else {
-        // Fallback for hardcoded admin
-        if (cleanInput === '570') {
-           onLogin({ id: 'admin-fallback', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
-        } else {
-          setError(true);
-          setTimeout(() => {
-            setVal('');
-            setError(false);
-          }, 1500);
-        }
-      }
+      // For manual ID login, we still use anonymous auth under the hood
+      // to establish a secure connection to read the database
+      const result = await signInAnonymously(auth);
+      
+      // We store the ID the user typed so App.tsx can find their profile
+      localStorage.setItem('takk_last_staff_id', staffId);
+      
+      console.log("Login successful, user:", result.user.uid);
+      // The actual profile fetching happens in App.tsx via onAuthStateChanged
     } catch (err) {
-      console.error("Login error:", err);
-      setError(true);
+      console.error(err);
+      setError('Innskráning mistókst. Reyndu aftur.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value.replace(/\D/g, '').slice(0, 3);
-    setVal(input);
-    
-    if (input.length === 3) {
-      attemptLogin(input);
+  const handleMicrosoftLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await signInWithPopup(auth, microsoftProvider);
+      console.log("Microsoft User:", result.user);
+      // We don't need to save staffId to localStorage here; 
+      // App.tsx will find the user by their Microsoft UID automatically.
+    } catch (err: any) {
+      console.error("Microsoft Login Error:", err);
+      setError('Microsoft innskráning mistókst.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 200);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6">
-      <div className="w-full max-sm flex flex-col items-center">
-        <div className="mb-12 flex flex-col items-center">
-          <img 
-            src={LOGO_URL} 
-            alt="TAKK" 
-            className="h-32 invert brightness-[2] mb-4" 
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              const parent = (e.target as HTMLImageElement).parentElement;
-              if (parent && !parent.querySelector('.logo-fallback')) {
-                const span = document.createElement('span');
-                span.className = 'logo-fallback text-6xl font-black italic tracking-tighter text-white';
-                span.innerText = 'TAKK';
-                parent.appendChild(span);
-              }
-            }}
-          />
-        </div>
-        
-        <div className={`glass w-full rounded-[40px] p-8 md:p-12 flex flex-col items-center transition-all duration-300 ${error ? 'border-rose-500 shadow-2xl shadow-rose-500/20 translate-x-1' : 'border-white/10'}`}>
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-8 text-center">
-            Sláðu inn starfsmannanúmer
-          </label>
-          
-          <div className="relative w-full mb-6">
-            <input 
-              ref={inputRef}
-              type="text"
-              pattern="[0-9]*"
-              inputMode="numeric"
-              autoComplete="off"
-              disabled={loading}
-              value={val}
-              onChange={handleChange}
-              placeholder="000"
-              className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-center text-5xl font-black tracking-[0.4em] text-white outline-none focus:ring-4 focus:ring-indigo-500/50 transition-all placeholder:text-slate-900 shadow-inner disabled:opacity-50"
-            />
-          </div>
+    <div className="min-h-screen bg-[#01040f] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute top-[40%] -right-[10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px] animate-pulse delay-1000" />
+      </div>
 
-          {val.length === 3 && !error && (
-            <button 
-              onClick={() => attemptLogin(val)}
-              disabled={loading}
-              className="w-full py-4 gradient-bg rounded-2xl text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 animate-in zoom-in-95 duration-200 shadow-xl"
-            >
-              {loading ? <Loader2 className="animate-spin" size={16} /> : <>Innskrá <ArrowRight size={14} /></>}
-            </button>
-          )}
-          
-          <div className="mt-8 flex flex-col items-center gap-2">
-            <p className="text-slate-500 text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest">
-              <Lock size={12} /> Örugg innskráning
-            </p>
-            {error && (
-              <p className="text-rose-400 text-[9px] font-black uppercase tracking-[0.2em] animate-pulse">
-                Starfsmaður fannst ekki
-              </p>
+      <div className="w-full max-w-md z-10 space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="inline-block relative group">
+            <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 group-hover:opacity-30 transition-opacity duration-500" />
+            {!logoError ? (
+              <img 
+                src={LOGO_URL} 
+                alt="TAKK" 
+                className="h-24 w-auto relative invert brightness-[2] drop-shadow-2xl"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <span className="text-5xl font-black italic tracking-tighter text-white relative">TAKK</span>
             )}
           </div>
+          <div>
+            <h2 className="text-3xl font-black text-white tracking-tight">Velkomin/n</h2>
+            <p className="text-slate-400 font-medium">Skráðu þig inn til að halda áfram</p>
+          </div>
         </div>
-        
-        <p className="mt-10 text-slate-800 text-[9px] font-black uppercase tracking-[0.4em] italic">
-          WageTrack Pro v1.4 • Firebase Powered
-        </p>
+
+        {/* Card */}
+        <div className="glass p-8 rounded-[30px] border border-white/10 shadow-2xl backdrop-blur-xl">
+          <div className="space-y-6">
+            
+            {/* Microsoft Login Button */}
+            <button
+              type="button"
+              onClick={handleMicrosoftLogin}
+              disabled={loading}
+              className="w-full bg-[#2F2F2F] hover:bg-[#3F3F3F] text-white p-4 rounded-xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 border border-white/10 group"
+            >
+              <Building2 className="w-5 h-5 text-[#00A4EF]" />
+              <span>Innskráning með Microsoft</span>
+            </button>
+
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-white/10"></div>
+              <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-widest">Eða notaðu ID</span>
+              <div className="flex-grow border-t border-white/10"></div>
+            </div>
+
+            <form onSubmit={handleManualLogin} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest ml-1">Starfsmannanúmer</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <UserCircle2 className="h-5 w-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    value={staffId}
+                    onChange={(e) => setStaffId(e.target.value)}
+                    className="block w-full pl-11 pr-4 py-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all font-bold text-lg"
+                    placeholder="t.d. 570"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
+                  <ShieldCheck className="h-5 w-5 flex-shrink-0" />
+                  <p className="text-sm font-bold">{error}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full gradient-bg p-4 rounded-xl font-black text-white tracking-wide shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn className="w-5 h-5" />
+                    <span>SKRÁ INN</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );
