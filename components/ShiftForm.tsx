@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shift } from '../types';
-import { Save, Calendar, Clock, DollarSign, Tag } from 'lucide-react';
+import { Save, Calendar, Clock, DollarSign, Tag, Loader2 } from 'lucide-react';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase'; 
 
 interface ShiftFormProps {
   onSave: (shift: Shift) => void;
+  userId: string; // Required for secure Firebase drafts
 }
 
-const ShiftForm: React.FC<ShiftFormProps> = ({ onSave }) => {
-  // Fix: Widened the type of 'type' to allow comparisons with other shift types like 'Eftirvinna' in handleSubmit
-  const [formData, setFormData] = useState({
+const ShiftForm: React.FC<ShiftFormProps> = ({ onSave, userId }) => {
+  const defaultState = {
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
     endTime: '16:00',
@@ -17,37 +19,111 @@ const ShiftForm: React.FC<ShiftFormProps> = ({ onSave }) => {
     isHoliday: false,
     type: 'Dagur' as 'Dagur' | 'Eftirvinna' | 'Næturvinna' | 'Helgarvinna',
     notes: ''
-  });
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState(defaultState);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 1. Load Draft from Firestore on Mount
+  useEffect(() => {
+    if (!userId) {
+        setIsLoadingDraft(false);
+        return;
+    }
+
+    const loadDraft = async () => {
+      try {
+        const docRef = doc(db, 'users', userId, 'drafts', 'shiftForm');
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          // Merge saved data with default state
+          setFormData({ ...defaultState, ...docSnap.data() } as any);
+        }
+      } catch (error) {
+        console.error("Error loading draft:", error);
+      } finally {
+        setIsLoadingDraft(false);
+      }
+    };
+
+    loadDraft();
+  }, [userId]);
+
+  // 2. Auto-Save to Firestore (Debounced 1000ms)
+  useEffect(() => {
+    if (!userId || isLoadingDraft) return;
+
+    const saveTimer = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        const docRef = doc(db, 'users', userId, 'drafts', 'shiftForm');
+        await setDoc(docRef, formData);
+      } catch (error) {
+        console.error("Error saving draft:", error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1000);
+
+    return () => clearTimeout(saveTimer);
+  }, [formData, userId, isLoadingDraft]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Calculate duration in decimal hours
+    // Calculate duration
     const [sH, sM] = formData.startTime.split(':').map(Number);
     const [eH, eM] = formData.endTime.split(':').map(Number);
     let duration = (eH + eM / 60) - (sH + sM / 60);
-    if (duration < 0) duration += 24; // Handle overnight shifts
+    if (duration < 0) duration += 24; 
     duration -= (formData.breakMinutes / 60);
 
-    // Map the internal form type to the Shift interface's day/evening buckets
     const dayHours = formData.type === 'Dagur' ? Math.max(0, duration) : 0;
     const eveningHours = formData.type === 'Eftirvinna' ? Math.max(0, duration) : 0;
 
-    // Fix: Ensure the object passed to onSave matches the Shift interface by adding missing properties
     onSave({
       id: Math.random().toString(36).substr(2, 9),
       date: formData.date,
       dayHours: dayHours,
       eveningHours: eveningHours,
-      totalSales: 0, // In this flow, sales are often calculated separately or added later
+      totalSales: 0,
       notes: formData.notes,
-      projectName: 'Other', // Satisfy Shift interface
-      userId: ''           // Satisfy Shift interface
+      projectName: 'Other',
+      userId: userId 
     });
+
+    // 3. Clear the draft from Firestore after successful save
+    if (userId) {
+        try {
+            const docRef = doc(db, 'users', userId, 'drafts', 'shiftForm');
+            await deleteDoc(docRef);
+        } catch (error) {
+            console.error("Error clearing draft:", error);
+        }
+    }
+
+    // Reset form
+    setFormData({ ...defaultState, date: formData.date, hourlyRate: formData.hourlyRate });
   };
 
+  if (isLoadingDraft) {
+    return (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <Loader2 className="animate-spin text-indigo-500" size={48} />
+            <p className="text-white font-bold">Hleð uppkasti...</p>
+        </div>
+    );
+  }
+
   return (
-    <div className="glass rounded-[40px] border-white/10 p-10 max-w-4xl mx-auto">
+    <div className="glass rounded-[40px] border-white/10 p-10 max-w-4xl mx-auto relative">
+      {isSaving && (
+          <div className="absolute top-4 right-8 text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse flex items-center gap-2">
+              <Save size={10} /> Saving Draft...
+          </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-8">
