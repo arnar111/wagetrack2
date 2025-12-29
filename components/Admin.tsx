@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { collection, addDoc, deleteDoc, doc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase.ts';
 import { User } from '../types.ts';
-import { UserPlus, Users, Trash2, ShieldAlert, Briefcase, Users2, X, Edit3, User as UserIcon } from 'lucide-react';
+import { UserPlus, Users, Trash2, ShieldAlert, Briefcase, Users2, X, Edit3, User as UserIcon, Mail } from 'lucide-react';
 
 interface AdminProps {
   users: User[];
@@ -12,6 +11,7 @@ interface AdminProps {
 
 const Admin: React.FC<AdminProps> = ({ users }) => {
   const [name, setName] = useState('');
+  const [email, setEmail] = useState(''); // NEW STATE
   const [staffId, setStaffId] = useState('');
   const [role, setRole] = useState<'agent' | 'manager'>('agent');
   const [team, setTeam] = useState<'Hringurinn' | 'Verið' | 'Other'>('Other');
@@ -38,12 +38,14 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
 
       await addDoc(collection(db, "users"), {
         name: name.trim(),
+        email: email.trim().toLowerCase(), // SAVE EMAIL
         staffId: cleanId,
         role,
         team
       });
 
       setName('');
+      setEmail('');
       setStaffId('');
       setRole('agent');
       setTeam('Other');
@@ -57,6 +59,7 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
   const startEditing = (u: User) => {
     setEditingUser({
       ...u,
+      email: u.email || '', // LOAD EMAIL
       role: u.role || 'agent',
       team: u.team || 'Other'
     });
@@ -71,6 +74,7 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
       const userRef = doc(db, "users", editingUser.id);
       const updateData: any = {
         name: editingUser.name || '',
+        email: (editingUser.email || '').trim().toLowerCase(), // UPDATE EMAIL
         role: editingUser.role || 'agent',
         team: editingUser.team || 'Other'
       };
@@ -101,6 +105,8 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20 relative">
+      
+      {/* EDIT USER MODAL */}
       {editingUser && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="glass p-10 rounded-[40px] w-full max-w-md border-[#d4af37]/40 shadow-2xl">
@@ -113,6 +119,13 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
                 <label className="text-[10px] font-black text-slate-500 uppercase">Nafn</label>
                 <input type="text" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-bold outline-none focus:ring-2 focus:ring-[#d4af37]" />
               </div>
+              
+              {/* NEW EMAIL FIELD IN EDIT */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase">Microsoft Netfang</label>
+                <input type="email" value={editingUser.email} onChange={e => setEditingUser({...editingUser, email: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-bold outline-none focus:ring-2 focus:ring-[#d4af37]" />
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase">Hlutverk</label>
                 <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as any})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black uppercase outline-none focus:ring-2 focus:ring-[#d4af37]">
@@ -134,6 +147,7 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
         </div>
       )}
 
+      {/* CREATE USER CARD */}
       <div className="glass rounded-[40px] p-8 md:p-10 border-indigo-500/20 shadow-2xl">
         <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-8 flex items-center gap-3"><UserPlus className="text-indigo-400" /> Nýr Starfsmaður</h3>
         <form onSubmit={handleAddUser} className="space-y-6">
@@ -141,6 +155,13 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
             <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Fullt nafn" className="bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-bold outline-none" required />
             <input type="text" maxLength={3} value={staffId} onChange={e => setStaffId(e.target.value.replace(/\D/g, ''))} placeholder="ID (3 stafir)" className="bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black text-center outline-none" required />
           </div>
+          
+          {/* NEW EMAIL FIELD IN CREATE */}
+          <div className="relative">
+             <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
+             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Microsoft Netfang (fyrir innskráningu)" className="w-full bg-white/5 border border-white/10 p-5 pl-14 rounded-3xl text-white font-bold outline-none" />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <select value={role} onChange={e => setRole(e.target.value as any)} className="bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black uppercase outline-none"><option value="agent">Sales Agent</option><option value="manager">Manager</option></select>
             <select value={team} onChange={e => setTeam(e.target.value as any)} className="bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black uppercase outline-none"><option value="Other">Annað</option><option value="Hringurinn">Hringurinn</option><option value="Verið">Verið</option></select>
@@ -149,14 +170,19 @@ const Admin: React.FC<AdminProps> = ({ users }) => {
         </form>
       </div>
 
+      {/* USER LIST */}
       <div className="glass rounded-[40px] p-8 md:p-10 border-white/5">
         <h3 className="text-xl font-black text-white uppercase italic mb-8 flex items-center gap-3"><Users className="text-slate-400" /> Starfsmannalisti</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map(u => (
             <div key={u.id} onClick={() => startEditing(u)} className="flex items-center justify-between p-5 bg-white/2 rounded-3xl border border-white/5 hover:border-[#d4af37]/40 transition-all cursor-pointer group">
-              <div className="flex items-center gap-4">
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-xs text-white ${u.role === 'manager' ? 'bg-[#d4af37] text-slate-900' : 'gradient-bg'}`}>{u.name.charAt(0)}</div>
-                <div><p className="font-black text-white text-sm group-hover:text-[#d4af37] transition-colors">{u.name}</p><p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">ID: {u.staffId} • {u.team}</p></div>
+              <div className="flex items-center gap-4 overflow-hidden">
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-xs text-white shrink-0 ${u.role === 'manager' ? 'bg-[#d4af37] text-slate-900' : 'gradient-bg'}`}>{u.name.charAt(0)}</div>
+                <div className="min-w-0">
+                    <p className="font-black text-white text-sm group-hover:text-[#d4af37] transition-colors truncate">{u.name}</p>
+                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest truncate">ID: {u.staffId} • {u.team}</p>
+                    {u.email && <p className="text-[9px] text-slate-500 truncate">{u.email}</p>}
+                </div>
               </div>
               <button onClick={(e) => { e.stopPropagation(); handleDeleteUser(u.id, u.staffId); }} className="text-slate-600 hover:text-rose-500 p-2"><Trash2 size={16} /></button>
             </div>
