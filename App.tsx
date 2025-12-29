@@ -3,13 +3,13 @@ import {
   LayoutDashboard, 
   History, 
   Settings, 
-  Mic2,
-  FileText,
-  Menu,
-  LogOut,
-  Sparkle,
-  PieChart,
-  ShieldCheck,
+  Mic2, 
+  FileText, 
+  Menu, 
+  LogOut, 
+  Sparkle, 
+  PieChart, 
+  ShieldCheck, 
   BarChart4
 } from 'lucide-react';
 import { 
@@ -80,7 +80,6 @@ const App: React.FC = () => {
 
           const snap = await getDocs(profileQuery);
           if (!snap.empty) {
-            // FIX: Force 'any' type to avoid TS2698 spread error
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
              
@@ -145,33 +144,26 @@ const App: React.FC = () => {
     };
   }, [user]);
 
-  // --- NEW: Pay Period Calculation Logic (26th to 25th) ---
+  // Pay Period Logic
   const periodData = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDate();
-    
-    // Determine start/end based on current day
     let start = new Date(now);
     let end = new Date(now);
 
     if (currentDay >= 26) {
-        // If today is 26th+, period is 26th of THIS month to 25th of NEXT month
         start.setDate(26);
         end.setMonth(end.getMonth() + 1);
         end.setDate(25);
     } else {
-        // If today is < 26th, period is 26th of PREVIOUS month to 25th of THIS month
         start.setMonth(start.getMonth() - 1);
         start.setDate(26);
         end.setDate(25);
     }
-
-    // Set time boundaries to ensure full day coverage
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
     const filterByDate = (item: any) => {
-        // Handle YYYY-MM-DD string or ISO timestamp
         const itemDate = new Date(item.date || item.timestamp); 
         return itemDate >= start && itemDate <= end;
     };
@@ -182,30 +174,12 @@ const App: React.FC = () => {
     };
   }, [shifts, sales]);
 
-  // Calculate summary ONLY using the filtered period data
   const summary = useMemo(() => calculateWageSummary(periodData.filteredShifts, periodData.filteredSales, wageSettings), [periodData, wageSettings]);
 
   if (loading) {
     return (
-      <div style={{
-        height: '100vh', 
-        width: '100vw', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        backgroundColor: '#01040f', 
-        color: 'white',
-        fontFamily: 'sans-serif'
-      }}>
-        <div style={{
-          width: '50px', 
-          height: '50px', 
-          border: '5px solid rgba(255,255,255,0.1)', 
-          borderTopColor: '#4f46e5', 
-          borderRadius: '50%', 
-          animation: 'spin 1s linear infinite'
-        }} />
+      <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: '#01040f', color: 'white', fontFamily: 'sans-serif' }}>
+        <div style={{ width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.1)', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         <h1 style={{ marginTop: '20px', fontWeight: '900', letterSpacing: '-0.05em' }}>CONNECTING TO FIREBASE...</h1>
       </div>
     );
@@ -287,7 +261,6 @@ const App: React.FC = () => {
               <Dashboard 
                 summary={summary} 
                 shifts={shifts} 
-                // PASSING FILTERED SHIFTS FOR CORRECT AVERAGE CALCULATION
                 periodShifts={periodData.filteredShifts} 
                 aiInsights={aiInsights} 
                 onAddClick={() => setActiveTab('register')} 
@@ -298,7 +271,20 @@ const App: React.FC = () => {
               />
             )}
             {activeTab === 'register' && (
-              <Registration onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} userRole={user.role} />
+              <Registration 
+                onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} 
+                onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} 
+                // PASSING DELETE AND UPDATE HANDLERS
+                onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))}
+                onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })}
+                currentSales={sales} 
+                shifts={shifts} 
+                editingShift={editingShift} 
+                goals={goals} 
+                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} 
+                userRole={user.role}
+                userId={user.staffId} 
+              />
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
@@ -321,7 +307,6 @@ const App: React.FC = () => {
               </div>
             )}
              
-            {/* SAFE FALLBACK - This prevents the crash */}
             {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
               <div className="text-center py-20 text-slate-500">
                 <p className="mb-4">Óþekkt síða.</p>
