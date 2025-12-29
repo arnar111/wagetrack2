@@ -44,7 +44,7 @@ import ManagerDashboard from './components/ManagerDashboard.tsx';
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
-  
+   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -65,12 +65,12 @@ const App: React.FC = () => {
     console.log("🔍 Initializing Auth Listener...");
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       console.log("🔑 Auth State Changed:", firebaseUser ? `Firebase UID: ${firebaseUser.uid}` : "No Firebase Session");
-      
+       
       if (firebaseUser) {
         try {
           const storedStaffId = localStorage.getItem('takk_last_staff_id');
           console.log("📡 Attempting to fetch role for user...");
-          
+           
           let profileQuery;
           if (storedStaffId) {
             profileQuery = query(collection(db, "users"), where("staffId", "==", storedStaffId));
@@ -83,7 +83,7 @@ const App: React.FC = () => {
             // FIX: Force 'any' type to avoid TS2698 spread error
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
-            
+             
             console.log("✅ User Profile Loaded:", userData.name, `(Role: ${userData.role})`);
             setUser(userData);
             localStorage.setItem('takk_last_staff_id', userData.staffId);
@@ -107,19 +107,19 @@ const App: React.FC = () => {
   // Data Listeners
   useEffect(() => {
     if (!user) return;
-    
+     
     console.log(`📈 Starting Real-time Listeners for ${user.staffId}...`);
-    
+     
     const shiftsQ = query(collection(db, "shifts"), where("userId", "==", user.staffId), orderBy("date", "desc"));
     const unsubShifts = onSnapshot(shiftsQ, (snapshot) => {
       setShifts(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Shift)));
     });
-    
+     
     const salesQ = query(collection(db, "sales"), where("userId", "==", user.staffId), orderBy("timestamp", "desc"));
     const unsubSales = onSnapshot(salesQ, (snapshot) => {
       setSales(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Sale)));
     });
-    
+     
     const configRef = doc(db, "user_configs", user.staffId);
     const unsubConfig = onSnapshot(configRef, (d) => {
       if (d.exists()) {
@@ -145,7 +145,45 @@ const App: React.FC = () => {
     };
   }, [user]);
 
-  const summary = useMemo(() => calculateWageSummary(shifts, sales, wageSettings), [shifts, sales, wageSettings]);
+  // --- NEW: Pay Period Calculation Logic (26th to 25th) ---
+  const periodData = useMemo(() => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    
+    // Determine start/end based on current day
+    let start = new Date(now);
+    let end = new Date(now);
+
+    if (currentDay >= 26) {
+        // If today is 26th+, period is 26th of THIS month to 25th of NEXT month
+        start.setDate(26);
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(25);
+    } else {
+        // If today is < 26th, period is 26th of PREVIOUS month to 25th of THIS month
+        start.setMonth(start.getMonth() - 1);
+        start.setDate(26);
+        end.setDate(25);
+    }
+
+    // Set time boundaries to ensure full day coverage
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const filterByDate = (item: any) => {
+        // Handle YYYY-MM-DD string or ISO timestamp
+        const itemDate = new Date(item.date || item.timestamp); 
+        return itemDate >= start && itemDate <= end;
+    };
+
+    return {
+        filteredShifts: shifts.filter(filterByDate),
+        filteredSales: sales.filter(filterByDate)
+    };
+  }, [shifts, sales]);
+
+  // Calculate summary ONLY using the filtered period data
+  const summary = useMemo(() => calculateWageSummary(periodData.filteredShifts, periodData.filteredSales, wageSettings), [periodData, wageSettings]);
 
   if (loading) {
     return (
@@ -271,7 +309,7 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
-            
+             
             {/* SAFE FALLBACK - This prevents the crash */}
             {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
               <div className="text-center py-20 text-slate-500">
