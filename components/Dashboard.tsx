@@ -111,7 +111,8 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             <div className="text-[10px] font-black text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Nettó</div>
           </div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Samtals safnað á tímabili</p>
-          <h3 className="text-2xl font-black text-white tracking-tighter italic">{formatISK(summary.netPay)}</h3>
+          {/* CHANGED: Now displaying totalSales instead of netPay */}
+          <h3 className="text-2xl font-black text-white tracking-tighter italic">{formatISK(summary.totalSales)}</h3>
         </div>
 
         <div className="glass p-6 rounded-[32px] border-emerald-500/10 group hover:bg-emerald-500/5 transition-all shadow-xl">
