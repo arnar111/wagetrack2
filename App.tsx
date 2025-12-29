@@ -80,6 +80,7 @@ const App: React.FC = () => {
 
           const snap = await getDocs(profileQuery);
           if (!snap.empty) {
+            // FIX: Force 'any' type to avoid TS2698 spread error
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
              
@@ -274,7 +275,6 @@ const App: React.FC = () => {
               <Registration 
                 onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} 
                 onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} 
-                // PASSING DELETE AND UPDATE HANDLERS
                 onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))}
                 onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })}
                 currentSales={sales} 
@@ -288,7 +288,15 @@ const App: React.FC = () => {
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
-            {activeTab === 'history' && <ShiftList shifts={shifts} onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} />}
+            {activeTab === 'history' && (
+              <ShiftList 
+                shifts={shifts} 
+                onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} 
+                onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} 
+                // PASSING THE ADD HANDLER
+                onAddShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })}
+              />
+            )}
             {activeTab === 'payslip' && <Payslip shifts={shifts} sales={sales} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={(s) => setDoc(doc(db, "user_configs", user.staffId), { wageSettings: s }, { merge: true })} />}
             {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
             {activeTab === 'settings' && (
