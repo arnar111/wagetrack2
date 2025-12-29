@@ -107,8 +107,24 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   if (!model) return fallback;
 
   try {
-    const systemInstruction = `Sölusérfræðingur hjá TAKK. Svaraðu á ÍSLENSKU.`;
-    const userPrompt = mode === 'create' ? `Skrifaðu söluræðu fyrir ${project}.` : `Hvað gerir ${project}?`;
+    // UPDATED PROMPT: Strictly enforces word count and focus on the Charity, NOT the company.
+    const systemInstruction = `Þú ert reyndur sölumaður fyrir góðgerðarfélög. Þitt verkefni er að skrifa sannfærandi texta til að selja mánaðarlegar styrktarveitingar.`;
+    
+    let userPrompt = "";
+    if (mode === 'create') {
+        userPrompt = `Verkefni: Skrifaðu söluræðu fyrir: ${project}.
+        
+        REGLUR:
+        1. Lengd: Nákvæmlega 70-100 orð.
+        2. Innihald: Talaðu eingöngu um mikilvægi ${project} og hvernig peningarnir hjálpa.
+        3. BANNAÐ: Ekki minnast á "Takk ehf", "fyrirtækið okkar" eða "við hjá Takk". Þú ert að tala beint fyrir hönd góðgerðarfélagsins.
+        4. Tónn: Hvetjandi, tilfinningaríkur en faglegur.
+        5. Tungumál: Íslenska.
+        
+        Textinn á að vera tilbúinn til lesturs í síma.`;
+    } else {
+        userPrompt = `Hvað gerir ${project}? Gefðu mér stutt yfirlit (bullet points) fyrir sölumann sem þarf að þekkja starfsemina. Svaraðu á íslensku.`;
+    }
     
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\-_>]/g, '').trim(), sources: [] };
