@@ -11,6 +11,8 @@ import { forceSeedUser123 } from '../utils/seeder.ts';
 interface DashboardProps {
   summary: WageSummary;
   shifts: Shift[];
+  // Added prop for precise calculation
+  periodShifts?: Shift[]; 
   aiInsights: string;
   onAddClick: () => void;
   goals: Goals;
@@ -19,7 +21,7 @@ interface DashboardProps {
   staffId?: string;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateGoals, staffId }) => {
+const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, periodShifts, goals, onUpdateGoals, staffId }) => {
   const [smartData, setSmartData] = useState<any>(null);
   const [isLoadingSmart, setIsLoadingSmart] = useState(false);
 
@@ -49,8 +51,14 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
   const dailyProgress = Math.min(100, (salesToday / (goals.daily || 1)) * 100);
   const monthlyProgress = Math.min(100, (summary.totalSales / (goals.monthly || 1)) * 100);
 
-  const daysWorked = useMemo(() => new Set(shifts.map(s => s.date)).size || 1, [shifts]);
-  const avgSalesPerDay = summary.totalSales / daysWorked;
+  // FIXED: Count days ONLY from the Period Shifts if available
+  const daysWorked = useMemo(() => {
+    const relevantShifts = periodShifts || shifts;
+    return new Set(relevantShifts.map(s => s.date)).size || 1;
+  }, [shifts, periodShifts]);
+
+  // Calculate Average based on Period Total / Period Days
+  const avgSalesPerDay = summary.totalSales / Math.max(1, daysWorked);
 
   return (
     <div className="space-y-6 md:space-y-8 pb-32 md:pb-10">
@@ -111,7 +119,6 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             <div className="text-[10px] font-black text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Nettó</div>
           </div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Samtals safnað á tímabili</p>
-          {/* CHANGED: Now displaying totalSales instead of netPay */}
           <h3 className="text-2xl font-black text-white tracking-tighter italic">{formatISK(summary.totalSales)}</h3>
         </div>
 
