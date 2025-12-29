@@ -45,7 +45,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
 
   const todayStr = new Date().toISOString().split('T')[0];
   const salesToday = shifts.find(s => s.date === todayStr)?.totalSales || 0;
-  
+   
   const dailyProgress = Math.min(100, (salesToday / (goals.daily || 1)) * 100);
   const monthlyProgress = Math.min(100, (summary.totalSales / (goals.monthly || 1)) * 100);
 
@@ -110,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
             <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><DollarSign size={20} /></div>
             <div className="text-[10px] font-black text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Nettó</div>
           </div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Útgreitt tímabil</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Samtals safnað á tímabili</p>
           <h3 className="text-2xl font-black text-white tracking-tighter italic">{formatISK(summary.netPay)}</h3>
         </div>
 
@@ -177,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({ summary, shifts, goals, onUpdateG
 
         <div className="glass p-8 rounded-[40px] border-indigo-500/20 flex flex-col justify-between shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
-          
+           
           <div className="space-y-12">
             <div className="relative">
               <div className="flex items-center gap-3 mb-4">
