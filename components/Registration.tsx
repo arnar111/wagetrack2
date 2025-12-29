@@ -188,7 +188,7 @@ const Registration: React.FC<RegistrationProps> = ({
   const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); // Needed per hour
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-20 relative animate-in fade-in duration-500">
+    <div className="space-y-6 max-w-7xl mx-auto pb-20 relative animate-in fade-in duration-500">
       
       {/* --- GOAL INPUT POPUP --- */}
       {showGoalInput && (
@@ -247,7 +247,7 @@ const Registration: React.FC<RegistrationProps> = ({
       </div>
 
       {/* 2. Metrics Row (5 Columns) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         
         {/* Metric 1: Live Hours */}
         <div className="glass p-5 rounded-[32px] border-white/10 relative overflow-hidden">
@@ -331,10 +331,12 @@ const Registration: React.FC<RegistrationProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {/* Sales Registration Area */}
-        <div className="glass p-8 md:p-10 rounded-[40px] border-white/10 flex flex-col shadow-2xl relative">
-          <div>
+      {/* MAIN CONTENT - TWO COLUMNS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-8 duration-700">
+        
+        {/* LEFT COLUMN - Sales Registration Area (Span 2 columns on large screens) */}
+        <div className="lg:col-span-2 glass p-8 md:p-10 rounded-[40px] border-white/10 flex flex-col shadow-2xl relative h-full">
+          <div className="flex-grow">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><ShoppingBag size={24} /></div>
               <div>
@@ -354,9 +356,9 @@ const Registration: React.FC<RegistrationProps> = ({
           </div>
           
           <div className="mt-12 pt-8 border-t border-white/5">
-             <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-4">Nýlegar færslur</h4>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {todaySales.length > 0 ? [...todaySales].reverse().slice(0, 4).map(s => (
+             <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-4">Nýlegar færslur í dag</h4>
+             <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                {todaySales.length > 0 ? [...todaySales].reverse().map(s => (
                   <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
                       <div className="flex items-center gap-3">
                           <div className="h-2 w-2 rounded-full bg-indigo-500" />
@@ -367,21 +369,20 @@ const Registration: React.FC<RegistrationProps> = ({
                       </div>
                       <span className="font-black text-indigo-400 text-sm">{formatISK(s.amount)}</span>
                   </div>
-                )) : <p className="text-slate-700 text-xs font-bold italic">Engin sala skráð í dag.</p>}
+                )) : <p className="text-slate-700 text-xs font-bold italic py-10 text-center">Engin sala skráð í dag.</p>}
              </div>
           </div>
         </div>
 
-        {/* --- PERFORMANCE HUB (New Visual Section) --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-8 duration-700">
+        {/* RIGHT COLUMN - PERFORMANCE HUB (Span 1 column) */}
+        <div className="flex flex-col gap-6 lg:col-span-1 h-full">
             
             {/* 1. Visual Goal Tracker */}
-            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col items-center justify-center relative overflow-hidden group flex-grow">
                 <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
                     <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${progressPercent}%` }} />
                 </div>
                 <div className="relative w-40 h-40 flex items-center justify-center mb-6">
-                    {/* SVG Circle Background */}
                     <svg className="absolute w-full h-full transform -rotate-90">
                         <circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,0.05)" strokeWidth="12" fill="none" />
                         <circle 
@@ -407,7 +408,7 @@ const Registration: React.FC<RegistrationProps> = ({
             </div>
 
             {/* 2. Streak Counter */}
-            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent flex-grow">
                 <div className="flex justify-between items-start">
                     <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400">
                         <Flame size={24} className={currentStreak > 1 ? "animate-pulse" : ""} />
@@ -424,7 +425,7 @@ const Registration: React.FC<RegistrationProps> = ({
             </div>
 
             {/* 3. Comparison / Personal Best */}
-            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between">
+            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between flex-grow">
                 <div className="flex justify-between items-start">
                     <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400">
                         <Trophy size={24} />
@@ -433,7 +434,7 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
                 <div>
                     <div className="flex items-end gap-3 mb-2">
-                        {totalSalesToday >= (goals.daily / 2) ? ( // Simple logic: if > 50% goal, show up trend
+                        {totalSalesToday >= (avgSalesPerHour * 4) ? (
                             <ArrowUpRight size={32} className="text-emerald-400" />
                         ) : (
                             <ArrowDownRight size={32} className="text-slate-600" />
