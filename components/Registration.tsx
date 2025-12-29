@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck, LogIn, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+// Added Sparkles and Target to the imports
+import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck, LogIn, LogOut, CheckCircle2, AlertCircle, Sparkles, Target } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -193,13 +194,17 @@ const Registration: React.FC<RegistrationProps> = ({
 
       {/* 2. Metrics Row (Clickable) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Card 1: Today's Sales */}
         <div 
             onClick={() => setExpandedMetric(expandedMetric === 'today' ? null : 'today')}
             className="glass p-5 rounded-[32px] border-indigo-500/10 cursor-pointer hover:bg-white/5 transition-all group"
         >
             <div className="flex justify-between items-start mb-1">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sala dagsins</p>
-                {expandedMetric === 'today' && <AlertCircle size={10} className="text-indigo-400" />}
+                {/* Fixed: Sparkles is now imported */}
+                <div className="p-1 rounded-full bg-indigo-500/20 text-indigo-400">
+                    <Sparkles size={12} />
+                </div>
             </div>
             <p className="text-xl font-black text-white">{formatISK(totalSalesToday)}</p>
             {expandedMetric === 'today' && (
@@ -212,22 +217,37 @@ const Registration: React.FC<RegistrationProps> = ({
             )}
         </div>
 
+        {/* Card 2: Average */}
         <div className="glass p-5 rounded-[32px] border-emerald-500/10">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p>
+            <div className="flex justify-between items-start mb-1">
+                <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p>
+                <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400">
+                    <TrendingUp size={12} />
+                </div>
+            </div>
             <p className="text-xl font-black text-emerald-400">{formatISK(avgSalesPerHour)}</p>
         </div>
 
+        {/* Card 3: Count */}
         <div className="glass p-5 rounded-[32px] border-violet-500/10">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p>
+            <div className="flex justify-between items-start mb-1">
+                <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p>
+                <div className="p-1 rounded-full bg-violet-500/20 text-violet-400">
+                    {/* Fixed: Target is now imported */}
+                    <Target size={12} />
+                </div>
+            </div>
             <p className="text-xl font-black text-violet-400">{todaySales.length}</p>
         </div>
 
+        {/* Card 4: Projected */}
         <div 
             onClick={() => setExpandedMetric(expandedMetric === 'proj' ? null : 'proj')}
             className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden cursor-pointer hover:bg-white/5 transition-all"
         >
             <div className="flex justify-between items-start mb-1">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Áætluð lokasala</p>
+                {/* Fixed: Sparkles is now imported */}
                 {expandedMetric === 'proj' && <Sparkles size={10} className="text-indigo-400" />}
             </div>
             <p className="text-xl font-black text-indigo-400">{formatISK(projectedFinal)}</p>
