@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck } from 'lucide-react';
+import { Save, Clock, ShoppingBag, TrendingUp, Trophy, Edit3, Zap, BookOpen, ShieldCheck, LogIn, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -19,8 +18,16 @@ const Registration: React.FC<RegistrationProps> = ({
   onSaveShift, onSaveSale, currentSales, shifts, editingShift, goals, onUpdateGoals, userRole 
 }) => {
   const [now, setNow] = useState(new Date());
-  const [showPopup, setShowPopup] = useState(false);
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  
+  // State for visual feedback (Toast)
+  const [notification, setNotification] = useState<{msg: string, type: 'success' | 'info'} | null>(null);
+  
+  // State for expanding metric cards
+  const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
+
+  // Clock In State
+  const [clockInTime, setClockInTime] = useState<Date | null>(null);
+
   const [vaktData, setVaktData] = useState({
     date: new Date().toISOString().split('T')[0],
     dayHours: 0,
@@ -35,74 +42,91 @@ const Registration: React.FC<RegistrationProps> = ({
     project: PROJECTS[0]
   });
 
+  // Load Clock-In state on mount
   useEffect(() => {
+    const storedStart = localStorage.getItem('takk_shift_start');
+    if (storedStart) {
+      setClockInTime(new Date(storedStart));
+    }
+    
+    // Also load draft data if exists
     if (editingShift) {
-      setVaktData({
-        date: editingShift.date,
-        dayHours: editingShift.dayHours,
-        eveningHours: editingShift.eveningHours,
-        notes: editingShift.notes,
-        managerNotes: editingShift.managerNotes || '',
-        projectName: editingShift.projectName || 'Other'
-      });
-      setShowPopup(false);
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      const savedHours = localStorage.getItem(`takk_hours_${today}`);
-      if (savedHours) {
-        setVaktData(prev => ({ ...prev, ...JSON.parse(savedHours), date: today }));
-        setShowPopup(false);
-      } else {
-        setShowPopup(true);
-      }
+        setVaktData({
+            date: editingShift.date,
+            dayHours: editingShift.dayHours,
+            eveningHours: editingShift.eveningHours,
+            notes: editingShift.notes,
+            managerNotes: editingShift.managerNotes || '',
+            projectName: editingShift.projectName || 'Other'
+        });
     }
   }, [editingShift]);
 
+  // Timer for "Live" calculations
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
+    if (notification) {
+        const notifTimer = setTimeout(() => setNotification(null), 3000);
+        return () => { clearInterval(timer); clearTimeout(notifTimer); };
+    }
     return () => clearInterval(timer);
-  }, []);
+  }, [notification]);
 
+  // --- Rounding Helper (Nearest 15 minutes) ---
+  const getRoundedTime = (date: Date) => {
+    const coeff = 1000 * 60 * 15;
+    return new Date(Math.round(date.getTime() / coeff) * coeff);
+  };
+
+  // --- Smart Clock Logic ---
+  const handleSmartClock = () => {
+    if (clockInTime) {
+        // CLOCK OUT LOGIC
+        const endTime = getRoundedTime(new Date());
+        const startTime = getRoundedTime(clockInTime);
+        
+        const diffMs = endTime.getTime() - startTime.getTime();
+        const diffHours = Math.max(0, diffMs / (1000 * 60 * 60)); // Convert ms to hours
+
+        // Simple logic: Assume evening hours if shift goes past 17:00? 
+        // For simplicity based on your request, we just set total hours to dayHours for now 
+        // or split them 50/50 if you prefer. Let's just put it in DayHours and let user adjust.
+        setVaktData(prev => ({ ...prev, dayHours: diffHours }));
+        
+        setClockInTime(null);
+        localStorage.removeItem('takk_shift_start');
+        setNotification({ msg: `Skráður út: ${diffHours.toFixed(2)} klst skráðar.`, type: 'info' });
+    } else {
+        // CLOCK IN LOGIC
+        const start = getRoundedTime(new Date());
+        setClockInTime(start);
+        localStorage.setItem('takk_shift_start', start.toISOString());
+        setNotification({ msg: `Skráður inn kl. ${start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, type: 'success' });
+    }
+  };
+
+  // --- Calculations ---
   const todaySales = useMemo(() => currentSales.filter(s => s.date === vaktData.date), [currentSales, vaktData.date]);
   const totalSalesToday = useMemo(() => todaySales.reduce((acc, s) => acc + s.amount, 0), [todaySales]);
-  const totalHoursPlanned = vaktData.dayHours + vaktData.eveningHours;
-  const numSales = todaySales.length;
+  
+  // Historical Averages for Projection
+  const { avgSalesPerHour, avgShiftLength } = useMemo(() => {
+    if (shifts.length === 0) return { avgSalesPerHour: 0, avgShiftLength: 8 };
+    
+    const totalHistorySales = shifts.reduce((acc, s) => acc + s.totalSales, 0);
+    const totalHistoryHours = shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
+    
+    const avgSpeed = totalHistoryHours > 0 ? totalHistorySales / totalHistoryHours : 0;
+    const avgLen = totalHistoryHours / shifts.length;
+    
+    return { avgSalesPerHour: avgSpeed, avgShiftLength: avgLen };
+  }, [shifts]);
 
-  const { avgPerHour, projectedFinal } = useMemo(() => {
-    if (todaySales.length === 0 || totalHoursPlanned <= 0) return { avgPerHour: 0, projectedFinal: 0 };
-    const timestamps = todaySales.map(s => new Date(s.timestamp).getTime());
-    const firstSaleTime = Math.min(...timestamps);
-    const elapsedMs = Math.max(15 * 60 * 1000, now.getTime() - firstSaleTime);
-    const elapsedHours = elapsedMs / (1000 * 60 * 60);
-    const currentPace = totalSalesToday / elapsedHours;
-    const projected = currentPace * totalHoursPlanned;
-    return { avgPerHour: currentPace, projectedFinal: projected };
-  }, [todaySales, totalHoursPlanned, now, totalSalesToday]);
-
-  const progressPercent = Math.min(100, (totalSalesToday / goals.daily) * 100);
-  const isGoalMet = totalSalesToday >= goals.daily;
-
-  const handleQuickAdd = (type: 'hringurinn' | 'verid') => {
-    if (type === 'hringurinn') {
-      setVaktData(prev => ({ ...prev, dayHours: 6, eveningHours: 2, projectName: 'Hringurinn' }));
-      setSaleData(prev => ({ ...prev, project: 'Hringurinn' }));
-    } else {
-      setVaktData(prev => ({ ...prev, dayHours: 4, eveningHours: 4, projectName: 'Verið' }));
-      setSaleData(prev => ({ ...prev, project: 'Verið' }));
-    }
-    setShowPopup(false);
-  };
-
-  const handleSaveHours = () => {
-    if (vaktData.dayHours + vaktData.eveningHours > 0) {
-      localStorage.setItem(`takk_hours_${vaktData.date}`, JSON.stringify({
-        dayHours: vaktData.dayHours,
-        eveningHours: vaktData.eveningHours,
-        projectName: vaktData.projectName
-      }));
-      setShowPopup(false);
-    }
-  };
+  // Projected Final: (Avg Speed * Avg Shift Length) OR (Avg Speed * Planned Hours)
+  const totalPlannedHours = vaktData.dayHours + vaktData.eveningHours;
+  // If user hasn't set hours yet, use their historical average shift length
+  const hoursToUse = totalPlannedHours > 0 ? totalPlannedHours : avgShiftLength;
+  const projectedFinal = avgSalesPerHour * hoursToUse;
 
   const handleSaveShift = () => {
     onSaveShift({
@@ -116,6 +140,7 @@ const Registration: React.FC<RegistrationProps> = ({
       projectName: vaktData.projectName,
       userId: '' 
     });
+    setNotification({ msg: "Vakt vistuð! Vel gert.", type: 'success' });
   };
 
   const handleAddSale = (e: React.FormEvent) => {
@@ -130,57 +155,89 @@ const Registration: React.FC<RegistrationProps> = ({
       userId: '' 
     });
     setSaleData({ ...saleData, amount: 0 });
+    setNotification({ msg: "Sölu bætt við!", type: 'success' });
   };
 
   const formatISK = (val: number) => new Intl.NumberFormat('is-IS').format(Math.round(val));
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-20 relative animate-in fade-in duration-500">
-      {/* Hours Setup Popup */}
-      {showPopup && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="glass p-10 rounded-[40px] w-full max-w-md border-indigo-500/30 shadow-[0_0_50px_rgba(79,70,229,0.2)]">
-            <h3 className="text-2xl font-black text-white uppercase italic mb-6 text-center">Ný Vakt</h3>
-            
-            {/* Quick Add Buttons */}
-            <div className="flex flex-col gap-3 mb-8">
-              <button onClick={() => handleQuickAdd('hringurinn')} className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-indigo-500/30 transition-all group">
-                <div className="text-left"><p className="text-xs font-black text-white uppercase tracking-tighter">Hringurinn</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (6+2)</p></div>
-                <Zap size={16} className="text-indigo-400 group-hover:scale-125 transition-transform" />
-              </button>
-              <button onClick={() => handleQuickAdd('verid')} className="flex items-center justify-between px-6 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-violet-500/30 transition-all group">
-                <div className="text-left"><p className="text-xs font-black text-white uppercase tracking-tighter">Verið</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Full vakt (4+4)</p></div>
-                <Zap size={16} className="text-violet-400 group-hover:scale-125 transition-transform" />
-              </button>
+      
+      {/* Visual Feedback (Toast) */}
+      {notification && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-2 fade-in duration-300">
+            <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 backdrop-blur-md border ${notification.type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50 text-white' : 'bg-indigo-500/20 border-indigo-500/50 text-white'}`}>
+                {notification.type === 'success' ? <CheckCircle2 size={18} className="text-emerald-400" /> : <Clock size={18} className="text-indigo-400" />}
+                <span className="font-bold text-sm">{notification.msg}</span>
             </div>
-
-            <div className="relative flex items-center gap-4 mb-8">
-              <div className="h-[1px] flex-1 bg-white/10"></div>
-              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Eða handvirkt</span>
-              <div className="h-[1px] flex-1 bg-white/10"></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div>
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">Dagvinna</label>
-                <input type="number" step="0.5" value={vaktData.dayHours || ''} onChange={e => setVaktData({...vaktData, dayHours: parseFloat(e.target.value) || 0})} placeholder="h" className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black text-3xl outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-3 block">Eftirvinna</label>
-                <input type="number" step="0.5" value={vaktData.eveningHours || ''} onChange={e => setVaktData({...vaktData, eveningHours: parseFloat(e.target.value) || 0})} placeholder="h" className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white font-black text-3xl outline-none focus:ring-2 focus:ring-violet-500" />
-              </div>
-            </div>
-            <button onClick={handleSaveHours} className="w-full py-5 gradient-bg rounded-[32px] text-white font-black text-xl shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">Byrja Vakt</button>
-          </div>
         </div>
       )}
 
-      {/* Metrics Row */}
+      {/* 1. Header with Smart Button */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
+         <div>
+            <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">Skráning</h2>
+            <p className="text-slate-500 font-bold text-xs tracking-widest uppercase mt-1">
+                {clockInTime ? 'Vakt í gangi...' : 'Byrjaðu vaktina'}
+            </p>
+         </div>
+         
+         <button 
+            onClick={handleSmartClock}
+            className={`w-full md:w-auto px-8 py-4 rounded-[24px] font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${clockInTime ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}
+         >
+            {clockInTime ? <LogOut size={20} /> : <LogIn size={20} />}
+            {clockInTime ? "Skrá út" : "Skrá inn"}
+         </button>
+      </div>
+
+      {/* 2. Metrics Row (Clickable) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass p-5 rounded-[32px] border-indigo-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Sala dagsins</p><p className="text-xl font-black text-white">{formatISK(totalSalesToday)}</p></div>
-        <div className="glass p-5 rounded-[32px] border-emerald-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p><p className="text-xl font-black text-emerald-400">{formatISK(avgPerHour)}</p></div>
-        <div className="glass p-5 rounded-[32px] border-violet-500/10"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p><p className="text-xl font-black text-violet-400">{numSales}</p></div>
-        <div className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden group"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Áætluð lokasala</p><p className="text-xl font-black text-indigo-400">{formatISK(projectedFinal)}</p></div>
+        <div 
+            onClick={() => setExpandedMetric(expandedMetric === 'today' ? null : 'today')}
+            className="glass p-5 rounded-[32px] border-indigo-500/10 cursor-pointer hover:bg-white/5 transition-all group"
+        >
+            <div className="flex justify-between items-start mb-1">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sala dagsins</p>
+                {expandedMetric === 'today' && <AlertCircle size={10} className="text-indigo-400" />}
+            </div>
+            <p className="text-xl font-black text-white">{formatISK(totalSalesToday)}</p>
+            {expandedMetric === 'today' && (
+                <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1">
+                    Markmið: {formatISK(goals.daily)} <br/>
+                    <span className={totalSalesToday >= goals.daily ? "text-emerald-400" : "text-rose-400"}>
+                        {Math.round((totalSalesToday / goals.daily) * 100)}% komið
+                    </span>
+                </div>
+            )}
+        </div>
+
+        <div className="glass p-5 rounded-[32px] border-emerald-500/10">
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p>
+            <p className="text-xl font-black text-emerald-400">{formatISK(avgSalesPerHour)}</p>
+        </div>
+
+        <div className="glass p-5 rounded-[32px] border-violet-500/10">
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p>
+            <p className="text-xl font-black text-violet-400">{todaySales.length}</p>
+        </div>
+
+        <div 
+            onClick={() => setExpandedMetric(expandedMetric === 'proj' ? null : 'proj')}
+            className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden cursor-pointer hover:bg-white/5 transition-all"
+        >
+            <div className="flex justify-between items-start mb-1">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Áætluð lokasala</p>
+                {expandedMetric === 'proj' && <Sparkles size={10} className="text-indigo-400" />}
+            </div>
+            <p className="text-xl font-black text-indigo-400">{formatISK(projectedFinal)}</p>
+            {expandedMetric === 'proj' && (
+                <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1">
+                    Miðað við {hoursToUse.toFixed(1)} klst vakt <br/>
+                    og sögulegan hraða.
+                </div>
+            )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -217,8 +274,28 @@ const Registration: React.FC<RegistrationProps> = ({
               <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Vaktaupplýsingar</h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-6 bg-white/5 rounded-3xl border border-white/5"><p className="text-[10px] font-black text-indigo-400 uppercase mb-2">Dagvinna</p><p className="text-3xl font-black text-white">{vaktData.dayHours}h</p></div>
-              <div className="p-6 bg-white/5 rounded-3xl border border-white/5"><p className="text-[10px] font-black text-violet-400 uppercase mb-2">Eftirvinna</p><p className="text-3xl font-black text-white">{vaktData.eveningHours}h</p></div>
+              <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase mb-2">Dagvinna</p>
+                  <input 
+                    type="number" 
+                    step="0.25" 
+                    value={vaktData.dayHours} 
+                    onChange={e => setVaktData({...vaktData, dayHours: parseFloat(e.target.value) || 0})}
+                    className="w-full bg-transparent text-3xl font-black text-white outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500">klst</span>
+              </div>
+              <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                  <p className="text-[10px] font-black text-violet-400 uppercase mb-2">Eftirvinna</p>
+                  <input 
+                    type="number" 
+                    step="0.25" 
+                    value={vaktData.eveningHours} 
+                    onChange={e => setVaktData({...vaktData, eveningHours: parseFloat(e.target.value) || 0})}
+                    className="w-full bg-transparent text-3xl font-black text-white outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500">klst</span>
+              </div>
             </div>
             <div className="space-y-4">
               <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase">Teymi: {vaktData.projectName}</label><textarea rows={2} value={vaktData.notes} onChange={e => setVaktData({...vaktData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-3xl text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Lýsing..." /></div>
@@ -228,8 +305,7 @@ const Registration: React.FC<RegistrationProps> = ({
             </div>
           </div>
           <div className="flex gap-4 mt-10">
-            <button onClick={() => setShowPopup(true)} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-[24px] text-slate-400 font-black text-xs uppercase transition-all">Breyta Tíma</button>
-            <button onClick={handleSaveShift} className="flex-1 py-5 gradient-bg rounded-[24px] text-white font-black text-xs uppercase shadow-2xl">Vista Vakt</button>
+            <button onClick={handleSaveShift} className="w-full py-5 gradient-bg rounded-[24px] text-white font-black text-xs uppercase shadow-2xl hover:scale-[1.02] transition-all active:scale-95">Vista Vakt</button>
           </div>
         </div>
       </div>
