@@ -107,7 +107,6 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   if (!model) return fallback;
 
   try {
-    // UPDATED PROMPT: Strictly enforces word count and focus on the Charity, NOT the company.
     const systemInstruction = `Þú ert reyndur sölumaður fyrir góðgerðarfélög. Þitt verkefni er að skrifa sannfærandi texta til að selja mánaðarlegar styrktarveitingar.`;
     
     let userPrompt = "";
@@ -157,8 +156,30 @@ export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => 
   const model = getModel("gemini-3-flash-preview");
   if (!model) return "Bíður eftir lykli...";
 
+  // 1. Pre-process data: Group by project for the AI
+  const summary: Record<string, { total: number, count: number }> = {};
+  
+  sales.forEach(sale => {
+    if (!summary[sale.project]) {
+        summary[sale.project] = { total: 0, count: 0 };
+    }
+    summary[sale.project].total += sale.amount;
+    summary[sale.project].count += 1;
+  });
+
   try {
-    const prompt = `Berðu saman söluverkefni. Svaraðu á ÍSLENSKU.`;
+    const prompt = `Hér eru mínar rauntölur fyrir söfnun (Góðgerðarfélög): ${JSON.stringify(summary)}.
+    
+    Greindu þessar tölur beint (EKKI tala almennt um sölutækni).
+    1. Hvaða félag gengur best hjá mér (hæsta upphæð)?
+    2. Hvað mætti bæta (fæstar sölur)?
+    3. Stutt framtíðarspá byggð eingöngu á þessum tölum.
+
+    Reglur:
+    - Max 150 orð.
+    - Svaraðu á ÍSLENSKU.
+    - Vertu hvetjandi en raunsær.`;
+
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Engin greining.";
   } catch (e) {
