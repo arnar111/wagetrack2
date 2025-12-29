@@ -1,10 +1,11 @@
-
 export interface User {
   id: string;
   name: string;
   staffId: string;
   role: 'agent' | 'manager';
   team: 'Hringurinn' | 'Verið' | 'Other';
+  uid?: string;   // Links Firestore User Profile to Firebase Auth UID
+  email?: string; // Added to fix build error
 }
 
 export interface Shift {
