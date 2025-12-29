@@ -284,7 +284,18 @@ const App: React.FC = () => {
               <ManagerDashboard allShifts={allShifts} allSales={allSales} allUsers={allUsers} currentUser={user} personalSummary={summary} />
             )}
             {(activeTab === 'dashboard' || (!isManager && activeTab === 'manager_dash')) && (
-              <Dashboard summary={summary} shifts={shifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} sales={sales} staffId={user.staffId} />
+              <Dashboard 
+                summary={summary} 
+                shifts={shifts} 
+                // PASSING FILTERED SHIFTS FOR CORRECT AVERAGE CALCULATION
+                periodShifts={periodData.filteredShifts} 
+                aiInsights={aiInsights} 
+                onAddClick={() => setActiveTab('register')} 
+                goals={goals} 
+                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} 
+                sales={sales} 
+                staffId={user.staffId} 
+              />
             )}
             {activeTab === 'register' && (
               <Registration onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} userRole={user.role} />
