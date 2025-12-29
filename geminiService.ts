@@ -7,7 +7,7 @@ import { Shift, WageSummary, Goals, Sale } from "./types.ts";
  */
 const getApiKey = (): string => {
   try {
-    // @ts-ignore - Ignores TypeScript errors if import.meta is weird in some environments
+    // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
       // @ts-ignore
       return import.meta.env.VITE_GEMINI_API_KEY;
@@ -21,8 +21,10 @@ const getApiKey = (): string => {
 /**
  * Helper to get the model safely.
  * DOES NOT RUN until called, preventing app-start crashes.
+ * UPDATED: Uses gemini-2.0-flash-exp (The latest available developer preview).
+ * NOTE: "gemini-3.0" does not exist yet and will cause crashes.
  */
-const getModel = (modelName: string = "gemini-1.5-flash") => {
+const getModel = (modelName: string = "gemini-2.0-flash-exp") => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn("⚠️ Gemini API Key is missing. Make sure VITE_GEMINI_API_KEY is set in Netlify.");
@@ -45,7 +47,8 @@ export interface SpeechResult {
 }
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  const model = getModel();
+  // Using the latest 2.0 Flash model
+  const model = getModel("gemini-2.0-flash-exp"); 
   if (!model) return "Bíður eftir lykli... (Vantar VITE_GEMINI_API_KEY)";
   
   try {
@@ -53,13 +56,14 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Greining fannst ekki.";
   } catch (e) {
-    console.error(e);
+    console.error("AI Error:", e);
     return "Villa við tengingu (AI).";
   }
 };
 
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  const model = getModel("gemini-1.5-pro");
+  // Switched to 2.0 Flash Exp for latest capabilities
+  const model = getModel("gemini-2.0-flash-exp");
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
   try {
@@ -82,7 +86,7 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
-  const model = getModel();
+  const model = getModel("gemini-2.0-flash-exp");
   if (!model) return "Bíður eftir lykli...";
 
   try {
@@ -97,7 +101,7 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
-  const model = getModel();
+  const model = getModel("gemini-2.0-flash-exp");
   const fallback = { text: "AI lykill vantar.", sources: [] };
   if (!model) return fallback;
 
@@ -113,7 +117,7 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
 };
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
-  const model = getModel();
+  const model = getModel("gemini-2.0-flash-exp");
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
 
   try {
@@ -133,7 +137,7 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 };
 
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
-  const model = getModel();
+  const model = getModel("gemini-2.0-flash-exp");
   if (!model) return "Bíður eftir lykli...";
 
   try {
