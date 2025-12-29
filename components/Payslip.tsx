@@ -1,18 +1,20 @@
-
 import React, { useMemo } from 'react';
-import { WageSummary, WageSettings, Shift } from '../types';
-import { FileText, Printer, Download, Wallet, TrendingDown, Clock, Percent, ShieldCheck, AlertCircle } from 'lucide-react';
+import { WageSummary, WageSettings, Shift, Sale } from '../types';
+import { FileText, Printer, Download, Wallet, TrendingDown, Percent, ShieldCheck, AlertCircle } from 'lucide-react';
 import { calculateSalesBonus } from '../utils/calculations.ts';
 
 interface PayslipProps {
   shifts: Shift[];
+  // Added sales prop to ensure accurate bonus calculation based on period sales
+  sales?: Sale[]; 
   summary: WageSummary;
   settings: WageSettings;
   userName: string;
   onUpdateSettings: (s: WageSettings) => void;
 }
 
-const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, onUpdateSettings }) => {
+const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings, userName, onUpdateSettings }) => {
+  
   const formatISK = (val: number) => {
     return new Intl.NumberFormat('is-IS', { 
       style: 'currency', 
@@ -21,25 +23,64 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
     }).format(val);
   };
 
-  const currentMonth = new Date().toLocaleDateString('is-IS', { month: 'long', year: 'numeric' });
+  // --- Pay Period Logic (26th to 25th) ---
+  const periodInfo = useMemo(() => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    
+    let start = new Date(now);
+    let end = new Date(now);
 
-  // Detailed Payroll Calculations for Takk ehf
+    if (currentDay >= 26) {
+        // Current Period: 26th THIS month to 25th NEXT month
+        start.setDate(26);
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(25);
+    } else {
+        // Current Period: 26th PREVIOUS month to 25th THIS month
+        start.setMonth(start.getMonth() - 1);
+        start.setDate(26);
+        end.setDate(25);
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const periodString = `${start.toLocaleDateString('is-IS', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('is-IS', { day: '2-digit', month: 'short' })}`;
+    
+    return { start, end, label: periodString };
+  }, []);
+
+  // Detailed Payroll Calculations (Filtered by Period)
   const payroll = useMemo(() => {
+    // 1. Filter Shifts for Period
+    const periodShifts = shifts.filter(s => {
+        const d = new Date(s.date);
+        return d >= periodInfo.start && d <= periodInfo.end;
+    });
+
+    // 2. Filter Sales for Period (Crucial for Bonus)
+    const periodSalesList = sales.filter(s => {
+        const d = new Date(s.date || s.timestamp);
+        return d >= periodInfo.start && d <= periodInfo.end;
+    });
+    const periodTotalSales = periodSalesList.reduce((acc, s) => acc + s.amount, 0);
+
     const dayRate = settings.dayRate || 2724.88;
     const eveningRate = settings.eveningRate || 3768.47;
     const orlofRate = 0.1017;
     const pensionRate = 0.04;
     const unionRate = 0.007;
 
-    const totalDayHours = shifts.reduce((acc, s) => acc + s.dayHours, 0);
-    const totalEveningHours = shifts.reduce((acc, s) => acc + s.eveningHours, 0);
+    const totalDayHours = periodShifts.reduce((acc, s) => acc + s.dayHours, 0);
+    const totalEveningHours = periodShifts.reduce((acc, s) => acc + s.eveningHours, 0);
     const totalHours = totalDayHours + totalEveningHours;
 
     const dayEarnings = totalDayHours * dayRate;
     const eveningEarnings = totalEveningHours * eveningRate;
     
-    // 1604 Bónus logic
-    const bonus = calculateSalesBonus(summary.totalSales, totalHours);
+    // 1604 Bónus logic (Using filtered sales)
+    const bonus = calculateSalesBonus(periodTotalSales, totalHours);
     
     const subtotalForOrlof = dayEarnings + eveningEarnings + bonus;
     // 901 Orlof
@@ -92,7 +133,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
       allowanceUsed: personalAllowance,
       totalHours
     };
-  }, [shifts, summary.totalSales, settings.dayRate, settings.eveningRate, settings.personalAllowance, settings.allowanceUsage]);
+  }, [shifts, sales, periodInfo, settings]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700">
@@ -124,7 +165,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 bg-white flex items-center justify-center rounded-2xl">
-                   <span className="text-slate-900 font-black italic text-xl">T</span>
+                    <span className="text-slate-900 font-black italic text-xl">T</span>
                 </div>
                 <h2 className="text-4xl font-black text-white italic tracking-tighter">TAKK ehf.</h2>
               </div>
@@ -143,7 +184,8 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
                 </div>
                 <div className="text-right">
                   <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Tímabil</p>
-                  <p className="text-indigo-400 font-black capitalize">{currentMonth}</p>
+                  {/* CHANGED: Shows actual dates (e.g. 26. Jan - 25. Feb) */}
+                  <p className="text-indigo-400 font-black capitalize">{periodInfo.label}</p>
                 </div>
                 <div className="pt-4 border-t border-white/5">
                   <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Vinnustundir</p>
@@ -151,7 +193,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, summary, settings, userName, 
                 </div>
                 <div className="text-right pt-4 border-t border-white/5">
                   <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Gjalddagi</p>
-                  <p className="text-white font-black">01. {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('is-IS', { month: 'short' })}</p>
+                  <p className="text-white font-black">01. {periodInfo.end.toLocaleDateString('is-IS', { month: 'short' })}</p>
                 </div>
               </div>
             </div>
