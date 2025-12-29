@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { ShoppingBag, TrendingUp, Clock, LogIn, LogOut, CheckCircle2, Sparkles, Target, Flame, Trophy, X, ArrowUpRight, ArrowDownRight, Sun, Moon } from 'lucide-react';
+import { ShoppingBag, TrendingUp, Clock, LogIn, LogOut, CheckCircle2, Sparkles, Target, Flame, Trophy, X, ArrowUpRight, ArrowDownRight, Sun, Moon, Minus } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -101,41 +101,30 @@ const Registration: React.FC<RegistrationProps> = ({
 
   // Streak Calculation
   const currentStreak = useMemo(() => {
-    // Simple logic: sort shifts by date, count consecutive days
     const uniqueDates = Array.from(new Set(shifts.map(s => s.date))).sort().reverse();
     let streak = 0;
-    let checkDate = new Date(); 
-    // Start checking from yesterday/today
-    for (let dateStr of uniqueDates) {
-        // In a real app, strict date checking is needed. 
-        // Here we just count shifts for visual demo.
-        streak++;
-    }
-    return Math.min(streak, 1); // Placeholder logic if dates aren't strictly consecutive in test data
+    // Simple placeholder streak logic
+    if (uniqueDates.length > 0) streak = uniqueDates.length > 5 ? 5 : uniqueDates.length; 
+    return Math.max(1, streak); 
   }, [shifts]);
 
   const currentShiftDuration = liveHours.day + liveHours.evening;
-  // Assume a standard 4 hour shift for projection if just started
   const hoursRemaining = Math.max(0.5, 4 - currentShiftDuration); 
   const projectedFinal = totalSalesToday + (avgSalesPerHour * hoursRemaining);
 
   // --- Smart Clock Logic ---
   const handleClockClick = () => {
     if (clockInTime) {
-        // If clocking out -> Process immediately
         processClockOut();
     } else {
-        // If clocking in -> Ask for goal first
         setShowGoalInput(true);
     }
   };
 
   const confirmClockIn = () => {
-    // 1. Update Goal
     const newGoal = parseInt(tempGoal) || goals.daily;
     onUpdateGoals({ ...goals, daily: newGoal });
     
-    // 2. Start Timer
     const start = getRoundedTime(new Date());
     setClockInTime(start);
     localStorage.setItem('takk_shift_start', start.toISOString());
@@ -185,7 +174,13 @@ const Registration: React.FC<RegistrationProps> = ({
   // Visuals
   const progressPercent = Math.min(100, (totalSalesToday / goals.daily) * 100);
   const remainingAmount = Math.max(0, goals.daily - totalSalesToday);
-  const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); // Needed per hour
+  const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); 
+
+  // Comparison Logic for "Árangur" Card
+  const averageShiftSales = avgSalesPerHour * 4; // Benchmark against 4 hour shift
+  const performanceDiff = totalSalesToday - averageShiftSales;
+  const performancePercent = averageShiftSales > 0 ? (performanceDiff / averageShiftSales) * 100 : 0;
+  const isPerformingWell = performanceDiff >= 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20 relative animate-in fade-in duration-500">
@@ -269,7 +264,7 @@ const Registration: React.FC<RegistrationProps> = ({
             </div>
         </div>
 
-        {/* Metric 2: Today's Sales (Interactive) */}
+        {/* Metric 2: Today's Sales */}
         <div 
             onClick={() => setExpandedMetric(expandedMetric === 'today' ? null : 'today')}
             className="glass p-5 rounded-[32px] border-indigo-500/10 cursor-pointer hover:bg-white/5 transition-all group"
@@ -311,7 +306,7 @@ const Registration: React.FC<RegistrationProps> = ({
             <p className="text-xl font-black text-violet-400">{todaySales.length}</p>
         </div>
 
-        {/* Metric 5: Projected (Interactive) */}
+        {/* Metric 5: Projected */}
         <div 
             onClick={() => setExpandedMetric(expandedMetric === 'proj' ? null : 'proj')}
             className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden cursor-pointer hover:bg-white/5 transition-all"
@@ -334,7 +329,7 @@ const Registration: React.FC<RegistrationProps> = ({
       {/* MAIN CONTENT - TWO COLUMNS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-8 duration-700">
         
-        {/* LEFT COLUMN - Sales Registration Area (Span 2 columns on large screens) */}
+        {/* LEFT COLUMN - Sales Registration Area */}
         <div className="lg:col-span-2 glass p-8 md:p-10 rounded-[40px] border-white/10 flex flex-col shadow-2xl relative h-full">
           <div className="flex-grow">
             <div className="flex items-center gap-3 mb-8">
@@ -374,14 +369,12 @@ const Registration: React.FC<RegistrationProps> = ({
           </div>
         </div>
 
-        {/* RIGHT COLUMN - PERFORMANCE HUB (Span 1 column) */}
+        {/* RIGHT COLUMN - PERFORMANCE HUB */}
         <div className="flex flex-col gap-6 lg:col-span-1 h-full">
             
-            {/* 1. Visual Goal Tracker */}
+            {/* 1. Visual Goal Tracker (Removed Green Bar) */}
             <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col items-center justify-center relative overflow-hidden group flex-grow">
-                <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
-                    <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${progressPercent}%` }} />
-                </div>
+                {/* REMOVED: Top Green Progress Bar */}
                 <div className="relative w-40 h-40 flex items-center justify-center mb-6">
                     <svg className="absolute w-full h-full transform -rotate-90">
                         <circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,0.05)" strokeWidth="12" fill="none" />
@@ -407,44 +400,66 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
             </div>
 
-            {/* 2. Streak Counter */}
+            {/* 2. Streak Counter (Added Fire Chain Visuals) */}
             <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent flex-grow">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start mb-4">
                     <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400">
                         <Flame size={24} className={currentStreak > 1 ? "animate-pulse" : ""} />
                     </div>
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Streak</span>
                 </div>
                 <div>
-                    <h3 className="text-5xl font-black text-white tracking-tighter mb-2">{currentStreak}</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-tight">
+                    <h3 className="text-5xl font-black text-white tracking-tighter mb-1">{currentStreak}</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-tight mb-6">
                         Vaktir í röð <br/>
                         <span className="text-amber-400">Haltu áfram!</span>
                     </p>
+                    
+                    {/* Visual Fire Chain */}
+                    <div className="flex gap-2">
+                        {[...Array(5)].map((_, i) => (
+                            <div key={i} className={`h-2 flex-1 rounded-full transition-all ${i < currentStreak ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-white/10'}`} />
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* 3. Comparison / Personal Best */}
-            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between flex-grow">
+            {/* 3. Comparison / Personal Best (Big & Visual) */}
+            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between flex-grow relative overflow-hidden">
                 <div className="flex justify-between items-start">
                     <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400">
                         <Trophy size={24} />
                     </div>
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Árangur</span>
                 </div>
-                <div>
-                    <div className="flex items-end gap-3 mb-2">
-                        {totalSalesToday >= (avgSalesPerHour * 4) ? (
-                            <ArrowUpRight size={32} className="text-emerald-400" />
+                
+                <div className="mt-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        {isPerformingWell ? (
+                            <ArrowUpRight size={28} className="text-emerald-400" />
                         ) : (
-                            <ArrowDownRight size={32} className="text-slate-600" />
+                            <ArrowDownRight size={28} className="text-rose-400" />
                         )}
-                        <span className="text-sm font-bold text-slate-300 mb-1">vs. Meðaltal</span>
+                        <h3 className={`text-4xl font-black tracking-tighter ${isPerformingWell ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {performanceDiff > 0 ? '+' : ''}{Math.round(performancePercent)}%
+                        </h3>
                     </div>
-                    <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                        Þú ert að standa þig <span className="text-white font-bold">{totalSalesToday > avgSalesPerHour * 4 ? 'betur en' : 'svipað og'}</span> venjulega. 
-                        <br/>Meðalvaktin þín er um {formatISK(avgSalesPerHour * 4)}.
+                    
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                        Miðað við meðaltal
                     </p>
+
+                    {/* Comparison Progress Bar */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                            <span>Þú</span>
+                            <span>Meðaltal</span>
+                        </div>
+                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden flex">
+                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (totalSalesToday / (averageShiftSales * 1.5)) * 100)}%` }} />
+                            <div className="w-[2px] h-full bg-white/20 z-10" /> 
+                        </div>
+                    </div>
                 </div>
             </div>
 
