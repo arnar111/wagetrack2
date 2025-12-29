@@ -1,6 +1,28 @@
 import { Shift, WageSummary, WageSettings, Sale } from '../types';
 
 /**
+ * Reiknar virka vinnustundir (Restored for ManagerDashboard)
+ */
+export const calculateEffectiveHours = (totalHours: number): number => {
+  return Math.max(0, totalHours * 0.875);
+};
+
+/**
+ * Reiknar framvindu og hraða (Restored for ManagerDashboard)
+ */
+export const calculateVelocity = (currentSales: number, goal: number): { projected: number; pacePercent: number } => {
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  
+  const dailyPace = currentSales / Math.max(1, dayOfMonth);
+  const projected = dailyPace * daysInMonth;
+  const pacePercent = goal > 0 ? (projected / goal) * 100 : 0;
+
+  return { projected, pacePercent };
+};
+
+/**
  * Reiknar bónus (1604) samkvæmt nýrri formúlu:
  * Total Sales - ((636 * hours) - (79.5 * hours))
  */
