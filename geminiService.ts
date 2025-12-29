@@ -7,7 +7,7 @@ import { Shift, WageSummary, Goals, Sale } from "./types.ts";
  */
 const getApiKey = (): string => {
   try {
-    // @ts-ignore
+    // @ts-ignore - Ignores TypeScript errors if import.meta is weird in some environments
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
       // @ts-ignore
       return import.meta.env.VITE_GEMINI_API_KEY;
@@ -21,16 +21,16 @@ const getApiKey = (): string => {
 /**
  * Helper to get the model safely.
  * DOES NOT RUN until called, preventing app-start crashes.
- * UPDATED: Uses gemini-2.0-flash-exp (The latest available developer preview).
- * NOTE: "gemini-3.0" does not exist yet and will cause crashes.
+ * UPDATED (Dec 2025): Now defaults to 'gemini-3-flash-preview' as 1.5 is retired.
  */
-const getModel = (modelName: string = "gemini-2.0-flash-exp") => {
+const getModel = (modelName: string = "gemini-3-flash-preview") => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn("⚠️ Gemini API Key is missing. Make sure VITE_GEMINI_API_KEY is set in Netlify.");
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
+  // Note: For Gemini 3 Preview, ensure 'Generative AI Experimental' API is enabled in Google Cloud Console
   return genAI.getGenerativeModel({ model: modelName });
 };
 
@@ -47,8 +47,8 @@ export interface SpeechResult {
 }
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  // Using the latest 2.0 Flash model
-  const model = getModel("gemini-2.0-flash-exp"); 
+  // Use Gemini 3 Flash for high-speed, low-latency insights
+  const model = getModel("gemini-3-flash-preview");
   if (!model) return "Bíður eftir lykli... (Vantar VITE_GEMINI_API_KEY)";
   
   try {
@@ -57,13 +57,13 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
     return result.response.text().replace(/[*#]/g, '') || "Greining fannst ekki.";
   } catch (e) {
     console.error("AI Error:", e);
-    return "Villa við tengingu (AI).";
+    return "Villa við tengingu (AI - Gemini 3).";
   }
 };
 
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  // Switched to 2.0 Flash Exp for latest capabilities
-  const model = getModel("gemini-2.0-flash-exp");
+  // Use Gemini 3 Pro for complex strategic reasoning
+  const model = getModel("gemini-3-pro-preview");
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
   try {
@@ -86,7 +86,8 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
 };
 
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
-  const model = getModel("gemini-2.0-flash-exp");
+  // Conversational AI using Gemini 3 Flash
+  const model = getModel("gemini-3-flash-preview");
   if (!model) return "Bíður eftir lykli...";
 
   try {
@@ -101,7 +102,7 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
-  const model = getModel("gemini-2.0-flash-exp");
+  const model = getModel("gemini-3-flash-preview");
   const fallback = { text: "AI lykill vantar.", sources: [] };
   if (!model) return fallback;
 
@@ -117,7 +118,7 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
 };
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
-  const model = getModel("gemini-2.0-flash-exp");
+  const model = getModel("gemini-3-flash-preview");
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
 
   try {
@@ -137,7 +138,7 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 };
 
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
-  const model = getModel("gemini-2.0-flash-exp");
+  const model = getModel("gemini-3-flash-preview");
   if (!model) return "Bíður eftir lykli...";
 
   try {
