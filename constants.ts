@@ -23,5 +23,6 @@ export const PROJECTS = [
   "Sjálfsbjörg", 
   "Blindrafélagið", 
   "Amnesty", 
-  "Hjálparstarfið"
+  "Hjálparstarfið",
+  "Samtökin '78"
 ];
