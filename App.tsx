@@ -55,10 +55,27 @@ const App: React.FC = () => {
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
+  
+  // Initialize based on current width, but listen for changes
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+  
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  // --- NEW: Handle Window Resize ---
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false); // Auto-close on small screens
+      } else {
+        setIsSidebarOpen(true);  // Auto-open on large screens
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Auth Logic & Role Fetching
   useEffect(() => {
@@ -80,7 +97,6 @@ const App: React.FC = () => {
 
           const snap = await getDocs(profileQuery);
           if (!snap.empty) {
-            // FIX: Force 'any' type to avoid TS2698 spread error
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
              
@@ -207,7 +223,17 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full'} lg:relative lg:translate-x-0`}>
+      
+      {/* MOBILE BACKDROP OVERLAY (Closes Sidebar on click) */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} w-64 lg:relative lg:translate-x-0`}>
         <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center">
           <div className="flex flex-col items-center">
             {!logoError ? (
@@ -245,7 +271,9 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 bg-[#01040f] relative overflow-hidden">
         <header className="sticky top-0 z-40 glass border-b border-white/5 px-6 py-5 flex justify-between items-center backdrop-blur-2xl">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all"><Menu size={20} /></button>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 glass rounded-xl border border-white/10 hover:bg-white/5 transition-all lg:hidden">
+                <Menu size={20} />
+            </button>
             <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === activeTab)?.label}</h2>
           </div>
           <div className="flex items-center gap-3">
@@ -293,7 +321,6 @@ const App: React.FC = () => {
                 shifts={shifts} 
                 onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} 
                 onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} 
-                // PASSING THE ADD HANDLER
                 onAddShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })}
               />
             )}
@@ -315,6 +342,7 @@ const App: React.FC = () => {
               </div>
             )}
              
+            {/* SAFE FALLBACK */}
             {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
               <div className="text-center py-20 text-slate-500">
                 <p className="mb-4">Óþekkt síða.</p>
