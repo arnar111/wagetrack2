@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
 import { ShoppingBag, TrendingUp, Clock, LogIn, LogOut, CheckCircle2, Sparkles, Target, Flame, Trophy, X, ArrowUpRight, ArrowDownRight, Sun, Moon, Edit2, Trash2 } from 'lucide-react';
@@ -42,15 +42,47 @@ const Registration: React.FC<RegistrationProps> = ({
     project: PROJECTS[0]
   });
 
+  // --- Helpers (Moved UP so they are available for effects) ---
+  const getRoundedTime = useCallback((date: Date) => {
+    const coeff = 1000 * 60 * 15; // 15 minutes
+    return new Date(Math.round(date.getTime() / coeff) * coeff);
+  }, []);
+
+  const calculateShiftSplit = useCallback((start: Date, end: Date) => {
+    const isWeekend = start.getDay() === 0 || start.getDay() === 6;
+    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    
+    if (diffHours <= 0) return { day: 0, evening: 0 };
+    if (isWeekend) return { day: 0, evening: diffHours };
+
+    const hourOfDay = end.getHours();
+    // Simple logic: If current time is past 17:00, attribute to evening
+    // This is an estimation for the live view
+    if (hourOfDay >= 17) {
+        const eveningPart = Math.max(0, hourOfDay - 17 + (end.getMinutes()/60));
+        const dayPart = Math.max(0, diffHours - eveningPart);
+        return { day: dayPart, evening: eveningPart };
+    }
+    return { day: diffHours, evening: 0 };
+  }, []);
+
   // --- Initial Load ---
   useEffect(() => {
     const storedStart = localStorage.getItem('takk_shift_start');
     if (storedStart) {
-      setClockInTime(new Date(storedStart));
+      const parsedStart = new Date(storedStart);
+      setClockInTime(parsedStart);
+      
+      // FIX: Force immediate calculation on load
+      const current = new Date();
+      const roundedNow = getRoundedTime(current);
+      const roundedStart = getRoundedTime(parsedStart);
+      setLiveHours(calculateShiftSplit(roundedStart, roundedNow));
     }
     setTempGoal(goals.daily.toString());
-  }, []);
+  }, [getRoundedTime, calculateShiftSplit, goals.daily]);
 
+  // Handle Edit State
   useEffect(() => {
     if (editingSale) {
         setEditAmount(editingSale.amount);
@@ -58,9 +90,9 @@ const Registration: React.FC<RegistrationProps> = ({
     }
   }, [editingSale]);
 
-  // --- Live Timer & Notifications ---
+  // --- Live Timer (Updates Hours) ---
   useEffect(() => {
-    const timer = setInterval(() => {
+    const updateTime = () => {
       const current = new Date();
       setNow(current);
 
@@ -71,36 +103,23 @@ const Registration: React.FC<RegistrationProps> = ({
       } else {
         setLiveHours({ day: 0, evening: 0 });
       }
-    }, 30000);
+    };
 
+    // Run immediately to prevent 00:00 flash
+    updateTime();
+
+    // Then set interval
+    const timer = setInterval(updateTime, 30000);
+    return () => clearInterval(timer);
+  }, [clockInTime, getRoundedTime, calculateShiftSplit]);
+
+  // --- Notification Auto-Dismiss ---
+  useEffect(() => {
     if (notification) {
         const notifTimer = setTimeout(() => setNotification(null), 3000);
-        return () => { clearInterval(timer); clearTimeout(notifTimer); };
+        return () => clearTimeout(notifTimer);
     }
-    return () => clearInterval(timer);
-  }, [notification, clockInTime]);
-
-  // --- Helpers ---
-  const getRoundedTime = (date: Date) => {
-    const coeff = 1000 * 60 * 15;
-    return new Date(Math.round(date.getTime() / coeff) * coeff);
-  };
-
-  const calculateShiftSplit = (start: Date, end: Date) => {
-    const isWeekend = start.getDay() === 0 || start.getDay() === 6;
-    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    
-    if (diffHours <= 0) return { day: 0, evening: 0 };
-    if (isWeekend) return { day: 0, evening: diffHours };
-
-    const hourOfDay = end.getHours();
-    if (hourOfDay >= 17) {
-        const eveningPart = Math.max(0, hourOfDay - 17 + (end.getMinutes()/60));
-        const dayPart = Math.max(0, diffHours - eveningPart);
-        return { day: dayPart, evening: eveningPart };
-    }
-    return { day: diffHours, evening: 0 };
-  };
+  }, [notification]);
 
   // --- Data Calculations ---
   const todayStr = new Date().toISOString().split('T')[0];
@@ -144,6 +163,9 @@ const Registration: React.FC<RegistrationProps> = ({
     localStorage.setItem('takk_shift_start', start.toISOString());
     setNotification({ msg: `Markmið sett: ${formatISK(newGoal)}. Gangi þér vel!`, type: 'success' });
     setShowGoalInput(false);
+    
+    // Immediate visual update
+    setLiveHours({ day: 0, evening: 0 });
   };
 
   const processClockOut = () => {
@@ -209,7 +231,6 @@ const Registration: React.FC<RegistrationProps> = ({
   const remainingAmount = Math.max(0, goals.daily - totalSalesToday);
   const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); 
 
-  // Comparison Logic for "Árangur" Card (BIGGER & BETTER)
   const averageShiftSales = avgSalesPerHour * 4; 
   const performanceDiff = totalSalesToday - averageShiftSales;
   const performancePercent = averageShiftSales > 0 ? (performanceDiff / averageShiftSales) * 100 : 0;
@@ -446,7 +467,7 @@ const Registration: React.FC<RegistrationProps> = ({
         {/* RIGHT COLUMN - PERFORMANCE HUB */}
         <div className="flex flex-col gap-6 lg:col-span-1 h-full">
             
-            {/* 1. Visual Goal Tracker */}
+            {/* 1. Visual Goal Tracker (Removed Green Bar) */}
             <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col items-center justify-center relative overflow-hidden group flex-grow">
                 <div className="relative w-40 h-40 flex items-center justify-center mb-6">
                     <svg className="absolute w-full h-full transform -rotate-90">
@@ -473,7 +494,7 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
             </div>
 
-            {/* 2. Streak Counter */}
+            {/* 2. Streak Counter (Added Fire Chain Visuals) */}
             <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent flex-grow">
                 <div className="flex justify-between items-start mb-4">
                     <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400">
@@ -487,6 +508,8 @@ const Registration: React.FC<RegistrationProps> = ({
                         Vaktir í röð <br/>
                         <span className="text-amber-400">Haltu áfram!</span>
                     </p>
+                    
+                    {/* Visual Fire Chain */}
                     <div className="flex gap-2">
                         {[...Array(5)].map((_, i) => (
                             <div key={i} className={`h-2 flex-1 rounded-full transition-all ${i < currentStreak ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-white/10'}`} />
@@ -495,7 +518,7 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
             </div>
 
-            {/* 3. Comparison / Personal Best */}
+            {/* 3. Comparison / Personal Best (Big & Visual) */}
             <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between flex-grow relative overflow-hidden">
                 <div className="flex justify-between items-start">
                     <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400">
@@ -520,6 +543,7 @@ const Registration: React.FC<RegistrationProps> = ({
                         Miðað við meðaltal
                     </p>
 
+                    {/* Comparison Progress Bar */}
                     <div className="space-y-2">
                         <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
                             <span>Þú</span>
