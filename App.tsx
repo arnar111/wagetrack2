@@ -56,28 +56,24 @@ const App: React.FC = () => {
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
   
-  // Initialize based on current width, but listen for changes
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
-  
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
-  // --- Handle Window Resize ---
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false); // Auto-close on small screens
+        setIsSidebarOpen(false);
       } else {
-        setIsSidebarOpen(true);  // Auto-open on large screens
+        setIsSidebarOpen(true);
       }
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- Auth Logic & Role Fetching (UPDATED FOR SECURITY) ---
+  // --- Auth Logic & Role Fetching (FIXED FOR ADMIN POPUP) ---
   useEffect(() => {
     console.log("🔍 Initializing Auth Listener...");
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -85,9 +81,19 @@ const App: React.FC = () => {
        
       if (firebaseUser) {
         try {
-          // 1. Check for Admin Override (God Mode)
           const storedStaffId = localStorage.getItem('takk_last_staff_id');
-          
+          const adminEmail = 'arnar.kjartansson@takk.co';
+
+          // --- CRITICAL FIX ---
+          // If it is YOU (Admin), but you haven't picked an ID yet (storedStaffId is null),
+          // we must STOP here. Do not fetch profile. Do not setUser.
+          // This allows Login.tsx to stay rendered and show the God Mode popup.
+          if (firebaseUser.email?.toLowerCase() === adminEmail && !storedStaffId) {
+             console.log("🛡️ Admin detected. Waiting for God Mode selection...");
+             setLoading(false); // Stop loading so Login screen shows
+             return; 
+          }
+
           let profileQuery;
 
           if (storedStaffId) {
@@ -95,7 +101,6 @@ const App: React.FC = () => {
             profileQuery = query(collection(db, "users"), where("staffId", "==", storedStaffId));
           } else {
             console.log("📧 Standard Login. Fetching Email:", firebaseUser.email);
-            // Ensure you have an 'email' field in your users collection!
             profileQuery = query(collection(db, "users"), where("email", "==", firebaseUser.email));
           }
 
@@ -108,14 +113,11 @@ const App: React.FC = () => {
             console.log("✅ User Profile Loaded:", userData.name, `(Role: ${userData.role})`);
             setUser(userData);
             
-            // If we found them via Email, store their ID for session stability (optional, but good practice)
-            // But critically, Login.tsx handles clearing this for non-admins.
             if (!storedStaffId) {
                 localStorage.setItem('takk_last_staff_id', userData.staffId);
             }
 
           } else if (storedStaffId === '570') {
-            // Emergency Admin Backdoor (Hardcoded just in case DB fails)
             setUser({ id: 'admin-manual', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
           } else {
             console.warn("⚠️ No user profile found.");
@@ -138,8 +140,6 @@ const App: React.FC = () => {
   // Data Listeners
   useEffect(() => {
     if (!user) return;
-     
-    console.log(`📈 Starting Real-time Listeners for ${user.staffId}...`);
      
     const shiftsQ = query(collection(db, "shifts"), where("userId", "==", user.staffId), orderBy("date", "desc"));
     const unsubShifts = onSnapshot(shiftsQ, (snapshot) => {
@@ -238,8 +238,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      
-      {/* MOBILE BACKDROP OVERLAY */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden"
@@ -247,7 +245,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} w-64 lg:relative lg:translate-x-0`}>
         <div className="p-8 flex flex-col items-center border-b border-white/5 bg-white/2 min-h-[160px] justify-center">
           <div className="flex flex-col items-center">
