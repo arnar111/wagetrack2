@@ -41,6 +41,7 @@ import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
+import GhostSeeder from './components/GhostSeeder.tsx'; // <--- IMPORTED SEEDER
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
@@ -73,7 +74,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- Auth Logic & Role Fetching (FIXED FOR ADMIN POPUP) ---
+  // --- Auth Logic & Role Fetching ---
   useEffect(() => {
     console.log("🔍 Initializing Auth Listener...");
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -84,13 +85,10 @@ const App: React.FC = () => {
           const storedStaffId = localStorage.getItem('takk_last_staff_id');
           const adminEmail = 'arnar.kjartansson@takk.co';
 
-          // --- CRITICAL FIX ---
-          // If it is YOU (Admin), but you haven't picked an ID yet (storedStaffId is null),
-          // we must STOP here. Do not fetch profile. Do not setUser.
-          // This allows Login.tsx to stay rendered and show the God Mode popup.
+          // Admin check to prevent race condition
           if (firebaseUser.email?.toLowerCase() === adminEmail && !storedStaffId) {
              console.log("🛡️ Admin detected. Waiting for God Mode selection...");
-             setLoading(false); // Stop loading so Login screen shows
+             setLoading(false); 
              return; 
           }
 
@@ -371,6 +369,9 @@ const App: React.FC = () => {
         <MobileDock activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
       </div>
       <Chatbot />
+      
+      {/* TEMP SEEDER BUTTON - REMOVE AFTER USE */}
+      <GhostSeeder /> 
     </div>
   );
 };
