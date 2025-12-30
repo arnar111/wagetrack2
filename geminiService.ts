@@ -28,7 +28,6 @@ const getModel = (modelName: string) => {
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
-  // Note: Ensure 'Generative AI Experimental' API is enabled in Google Cloud Console for Preview models
   return genAI.getGenerativeModel({ model: modelName });
 };
 
@@ -47,17 +46,13 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
   if (!model) return "Bíður eftir lykli...";
 
   try {
-    // Separate the last message (new input) from the history context
     const lastMsg = history[history.length - 1];
     const previousHistory = history.slice(0, -1).map(h => ({
         role: h.role === 'assistant' ? 'model' : 'user',
         parts: h.parts
     }));
 
-    const chat = model.startChat({
-      history: previousHistory,
-    });
-
+    const chat = model.startChat({ history: previousHistory });
     const result = await chat.sendMessage(lastMsg.parts[0].text);
     return result.response.text();
   } catch (e) {
@@ -74,15 +69,12 @@ export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> =>
   try {
     const prompt = `
       Ég er sölumaður í síma (fjáröflun). Í dag lenti ég í þessum hindrunum: ${hurdles.join(', ')}.
-      
-      Greindu daginn minn stuttlega og gefðu mér 3 hnitmiðuð, öflug ráð (bullet points) um hvernig ég tækla þetta betur á morgun.
-      
+      Greindu daginn minn stuttlega og gefðu mér 3 hnitmiðuð, öflug ráð (bullet points).
       Reglur:
       1. Vertu stuttorður og hvetjandi (eins og reyndur sölustjóri sem heitir Morri).
       2. Svaraðu á ÍSLENSKU.
       3. Engin inngangur, bara ráðin.
     `;
-
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Gat ekki greint gögnin.";
   } catch (e) {
@@ -108,20 +100,16 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
 
 // --- MANAGER STRATEGY ---
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  const model = getModel(SMART_MODEL); // Uses Pro model for better reasoning
+  const model = getModel(SMART_MODEL);
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
   try {
-    const prompt = `Berðu saman árangur þessara góðgerðarfélaga: ${JSON.stringify(charityData)}. 
-    Skoðaðu Árangur (Heildarsöfnun), Skilvirkni (isk_per_hour) og Hagnaður (profit).
-    Segðu stjórnanda hvaða félag gefur besta arðinn og hvar er hægt að nýta mannskapinn betur. 
-    Svaraðu á ÍSLENSKU. Return JSON only. Format: {"topProject": "Nafn", "strategicAdvice": "Ráð"}`;
-
+    const prompt = `Berðu saman árangur: ${JSON.stringify(charityData)}. 
+    Return JSON only. Format: {"topProject": "Nafn", "strategicAdvice": "Ráð"}`;
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json" }
     });
-
     const text = stripMarkdown(result.response.text() || "{}");
     return JSON.parse(text);
   } catch (e) {
@@ -137,21 +125,10 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   if (!model) return fallback;
 
   try {
-    const systemInstruction = `Þú ert reyndur sölumaður fyrir góðgerðarfélög. Þitt verkefni er að skrifa sannfærandi texta til að selja mánaðarlegar styrktarveitingar.`;
-    
-    let userPrompt = "";
-    if (mode === 'create') {
-        userPrompt = `Verkefni: Skrifaðu söluræðu fyrir: ${project}.
-        REGLUR:
-        1. Lengd: Nákvæmlega 70-100 orð.
-        2. Innihald: Talaðu eingöngu um mikilvægi ${project} og hvernig peningarnir hjálpa.
-        3. BANNAÐ: Ekki minnast á "Takk ehf".
-        4. Tónn: Hvetjandi, tilfinningaríkur en faglegur.
-        5. Tungumál: Íslenska.
-        Textinn á að vera tilbúinn til lesturs í síma.`;
-    } else {
-        userPrompt = `Hvað gerir ${project}? Gefðu mér stutt yfirlit (bullet points) fyrir sölumann sem þarf að þekkja starfsemina. Svaraðu á íslensku.`;
-    }
+    const systemInstruction = `Þú ert reyndur sölumaður fyrir góðgerðarfélög. Skrifaðu sannfærandi texta.`;
+    let userPrompt = mode === 'create' 
+      ? `Skrifaðu söluræðu fyrir ${project}. 70-100 orð. Íslenska. Hvetjandi.`
+      : `Hvað gerir ${project}? Gefðu stutt yfirlit (bullet points) á íslensku.`;
     
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\-_>]/g, '').trim(), sources: [] };
@@ -161,14 +138,31 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   }
 };
 
-// --- SMART DASHBOARD ---
-export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
+// --- SMART DASHBOARD (FIXED LOGIC) ---
+export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodSales: number, goals: Goals) => {
   const model = getModel(FAST_MODEL);
-  if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
+  if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
 
   try {
-    const prompt = `Greindu árangur: Markmið: ${JSON.stringify(goals)}, Sala: ${summary.totalSales}. 
-    Svaraðu í JSON formi á ÍSLENSKU. Format: {"smartAdvice": "ráð", "trend": "up/down", "motivationalQuote": "tilvitnun", "projectedEarnings": 1000}`;
+    // Explicitly separating Today vs Month so the AI doesn't get confused
+    const prompt = `
+      Greindu stöðuna mína í sölu (fjáröflun) núna:
+      
+      DAGURINN Í DAG:
+      - Sala í dag: ${salesToday} kr.
+      - Dagsmarkmið: ${goals.daily} kr.
+      
+      MÁNUÐURINN (Heild):
+      - Heildarsala tímabils: ${totalPeriodSales} kr.
+      - Mánaðarmarkmið: ${goals.monthly} kr.
+
+      Verkefni:
+      1. Berðu "Sala í dag" saman við "Dagsmarkmið". Ef ég er undir, hvettu mig. Ef ég er yfir, hrósaðu.
+      2. Gefðu stutta athugasemd um mánaðarstöðuna.
+      
+      Svaraðu í JSON formi á ÍSLENSKU. 
+      Format: {"smartAdvice": "stutt ráð (max 10 orð)", "trend": "up/down/stable", "motivationalQuote": "Góð tilvitnun", "projectedEarnings": ${totalPeriodSales}}
+    `;
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -179,7 +173,7 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
     return JSON.parse(text);
   } catch (e) {
     console.error("Dashboard AI Error:", e);
-    return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
+    return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
   }
 };
 
@@ -189,19 +183,14 @@ export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => 
   if (!model) return "Bíður eftir lykli...";
 
   const summary: Record<string, { total: number, count: number }> = {};
-  
   sales.forEach(sale => {
-    if (!summary[sale.project]) {
-        summary[sale.project] = { total: 0, count: 0 };
-    }
+    if (!summary[sale.project]) summary[sale.project] = { total: 0, count: 0 };
     summary[sale.project].total += sale.amount;
     summary[sale.project].count += 1;
   });
 
   try {
-    const prompt = `Hér eru mínar rauntölur fyrir söfnun (Góðgerðarfélög): ${JSON.stringify(summary)}.
-    Greindu þessar tölur beint. Svaraðu á ÍSLENSKU. Max 150 orð.`;
-
+    const prompt = `Greindu tölurnar: ${JSON.stringify(summary)}. Hvað gengur best? Svaraðu á ÍSLENSKU. Max 150 orð.`;
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Engin greining.";
   } catch (e) {
