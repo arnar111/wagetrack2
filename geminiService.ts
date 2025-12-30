@@ -3,11 +3,10 @@ import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 /**
  * Safely retrieves the API key without crashing the app.
- * Checks both import.meta.env (Vite) and handles missing keys gracefully.
  */
 const getApiKey = (): string => {
   try {
-    // @ts-ignore - Ignores TypeScript errors if import.meta is weird in some environments
+    // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
       // @ts-ignore
       return import.meta.env.VITE_GEMINI_API_KEY;
@@ -18,25 +17,16 @@ const getApiKey = (): string => {
   return "";
 };
 
-/**
- * Helper to get the model safely.
- * DOES NOT RUN until called, preventing app-start crashes.
- * UPDATED (Dec 2025): Now defaults to 'gemini-3-flash-preview' as 1.5 is retired.
- */
 const getModel = (modelName: string = "gemini-3-flash-preview") => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("⚠️ Gemini API Key is missing. Make sure VITE_GEMINI_API_KEY is set in Netlify.");
+    console.warn("⚠️ Gemini API Key is missing.");
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
-  // Note: For Gemini 3 Preview, ensure 'Generative AI Experimental' API is enabled in Google Cloud Console
   return genAI.getGenerativeModel({ model: modelName });
 };
 
-/**
- * Strips markdown code blocks from a string to ensure valid JSON parsing.
- */
 const stripMarkdown = (text: string) => {
   return text.replace(/```json\n?|```/g, '').trim();
 };
@@ -46,23 +36,44 @@ export interface SpeechResult {
   sources: { title: string; uri: string }[];
 }
 
-export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  // Use Gemini 3 Flash for high-speed, low-latency insights
+// --- NEW FUNCTION FOR MORRI AI ---
+export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> => {
   const model = getModel("gemini-3-flash-preview");
-  if (!model) return "Bíður eftir lykli... (Vantar VITE_GEMINI_API_KEY)";
+  if (!model) return "Bíður eftir lykli...";
+
+  try {
+    const prompt = `
+      Ég er sölumaður í síma (fjáröflun). Í dag lenti ég í þessum hindrunum: ${hurdles.join(', ')}.
+      
+      Greindu daginn minn stuttlega og gefðu mér 3 hnitmiðuð, öflug ráð (bullet points) um hvernig ég tækla þetta betur á morgun.
+      
+      Reglur:
+      1. Vertu stuttorður og hvetjandi (eins og reyndur sölustjóri sem heitir Morri).
+      2. Svaraðu á ÍSLENSKU.
+      3. Engin inngangur, bara ráðin.
+    `;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text().replace(/[*#]/g, '') || "Gat ekki greint gögnin.";
+  } catch (e) {
+    return "Villa við tengingu við MorriAI.";
+  }
+};
+
+export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
+  const model = getModel("gemini-3-flash-preview");
+  if (!model) return "Bíður eftir lykli...";
   
   try {
-    const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${shifts.length}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna (engin * eða #), max 3 stuttar línur. Vertu hvetjandi.`;
+    const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${shifts.length}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna, max 3 stuttar línur. Vertu hvetjandi.`;
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Greining fannst ekki.";
   } catch (e) {
-    console.error("AI Error:", e);
-    return "Villa við tengingu (AI - Gemini 3).";
+    return "Villa við tengingu.";
   }
 };
 
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  // Use Gemini 3 Pro for complex strategic reasoning
   const model = getModel("gemini-3-pro-preview");
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
@@ -80,24 +91,7 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
     const text = stripMarkdown(result.response.text() || "{}");
     return JSON.parse(text);
   } catch (e) {
-    console.error(e);
     return { strategicAdvice: "AI greining tókst ekki.", topProject: "Gagna vantar" };
-  }
-};
-
-export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
-  // Conversational AI using Gemini 3 Flash
-  const model = getModel("gemini-3-flash-preview");
-  if (!model) return "Bíður eftir lykli...";
-
-  try {
-    const chat = model.startChat({
-      history: history.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: h.parts })),
-    });
-    // Dummy response since we aren't sending a new message here in this simplified flow
-    return "Hæ! (Kerfið er klárt, en þarf input).";
-  } catch (e) {
-    return "Tengingarvilla hjá Adda.";
   }
 };
 
@@ -112,14 +106,12 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     let userPrompt = "";
     if (mode === 'create') {
         userPrompt = `Verkefni: Skrifaðu söluræðu fyrir: ${project}.
-        
         REGLUR:
         1. Lengd: Nákvæmlega 70-100 orð.
         2. Innihald: Talaðu eingöngu um mikilvægi ${project} og hvernig peningarnir hjálpa.
-        3. BANNAÐ: Ekki minnast á "Takk ehf", "fyrirtækið okkar" eða "við hjá Takk". Þú ert að tala beint fyrir hönd góðgerðarfélagsins.
+        3. BANNAÐ: Ekki minnast á "Takk ehf".
         4. Tónn: Hvetjandi, tilfinningaríkur en faglegur.
         5. Tungumál: Íslenska.
-        
         Textinn á að vera tilbúinn til lesturs í síma.`;
     } else {
         userPrompt = `Hvað gerir ${project}? Gefðu mér stutt yfirlit (bullet points) fyrir sölumann sem þarf að þekkja starfsemina. Svaraðu á íslensku.`;
@@ -156,7 +148,6 @@ export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => 
   const model = getModel("gemini-3-flash-preview");
   if (!model) return "Bíður eftir lykli...";
 
-  // 1. Pre-process data: Group by project for the AI
   const summary: Record<string, { total: number, count: number }> = {};
   
   sales.forEach(sale => {
@@ -169,16 +160,7 @@ export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => 
 
   try {
     const prompt = `Hér eru mínar rauntölur fyrir söfnun (Góðgerðarfélög): ${JSON.stringify(summary)}.
-    
-    Greindu þessar tölur beint (EKKI tala almennt um sölutækni).
-    1. Hvaða félag gengur best hjá mér (hæsta upphæð)?
-    2. Hvað mætti bæta (fæstar sölur)?
-    3. Stutt framtíðarspá byggð eingöngu á þessum tölum.
-
-    Reglur:
-    - Max 150 orð.
-    - Svaraðu á ÍSLENSKU.
-    - Vertu hvetjandi en raunsær.`;
+    Greindu þessar tölur beint. Svaraðu á ÍSLENSKU. Max 150 orð.`;
 
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Engin greining.";
