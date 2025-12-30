@@ -1,19 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { WageSummary, WageSettings, Shift, Sale } from '../types';
-import { FileText, Printer, Download, Wallet, TrendingDown, Percent, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Wallet, TrendingDown, Percent, AlertCircle, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { calculateSalesBonus } from '../utils/calculations.ts';
 
 interface PayslipProps {
   shifts: Shift[];
-  sales?: Sale[]; // This MUST be here
-  summary: WageSummary;
+  sales?: Sale[];
+  summary: WageSummary; // This is the "global" summary, but we will calculate local summary for history
   settings: WageSettings;
   userName: string;
   onUpdateSettings: (s: WageSettings) => void;
 }
 
-const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings, userName, onUpdateSettings }) => {
-  
+const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userName, onUpdateSettings }) => {
+  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
+
   const formatISK = (val: number) => {
     return new Intl.NumberFormat('is-IS', { 
       style: 'currency', 
@@ -22,41 +23,57 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings
     }).format(val);
   };
 
-  const periodInfo = useMemo(() => {
+  // --- 1. Generate Last 10 Pay Periods ---
+  const periods = useMemo(() => {
+    const list = [];
     const now = new Date();
-    const currentDay = now.getDate();
-    let start = new Date(now);
-    let end = new Date(now);
+    
+    // Determine current period end date (25th of this or next month)
+    let currentEnd = new Date(now);
+    if (now.getDate() >= 26) {
+        currentEnd.setMonth(currentEnd.getMonth() + 1);
+    }
+    currentEnd.setDate(25);
+    currentEnd.setHours(23, 59, 59, 999);
 
-    if (currentDay >= 26) {
-        start.setDate(26);
-        end.setMonth(end.getMonth() + 1);
-        end.setDate(25);
-    } else {
+    for (let i = 0; i < 10; i++) {
+        const end = new Date(currentEnd);
+        end.setMonth(end.getMonth() - i);
+        
+        const start = new Date(end);
         start.setMonth(start.getMonth() - 1);
         start.setDate(26);
-        end.setDate(25);
+        start.setHours(0, 0, 0, 0);
+
+        list.push({
+            id: i,
+            start,
+            end,
+            label: `${start.toLocaleDateString('is-IS', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('is-IS', { day: 'numeric', month: 'short' })}`,
+            yearLabel: end.getFullYear() // Use end year for label
+        });
     }
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    
-    return { start, end, label: `${start.toLocaleDateString('is-IS', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('is-IS', { day: '2-digit', month: 'short' })}` };
+    return list;
   }, []);
 
+  const activePeriod = periods[selectedPeriodIndex];
+
+  // --- 2. Calculate Payroll for Selected Period ---
   const payroll = useMemo(() => {
-    // 1. Filter Shifts
+    if (!activePeriod) return null;
+
+    // Filter Shifts
     const periodShifts = shifts.filter(s => {
         const d = new Date(s.date);
-        return d >= periodInfo.start && d <= periodInfo.end;
+        return d >= activePeriod.start && d <= activePeriod.end;
     });
 
-    // 2. Filter Sales (Crucial!)
+    // Filter Sales
     const periodSalesList = sales.filter(s => {
         const d = new Date(s.date || s.timestamp);
-        return d >= periodInfo.start && d <= periodInfo.end;
+        return d >= activePeriod.start && d <= activePeriod.end;
     });
 
-    // 3. Sum Sales for Period
     const periodTotalSales = periodSalesList.reduce((acc, s) => acc + s.amount, 0);
 
     const dayRate = settings.dayRate || 2724.88;
@@ -72,7 +89,6 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings
     const dayEarnings = totalDayHours * dayRate;
     const eveningEarnings = totalEveningHours * eveningRate;
     
-    // 4. Calculate Bonus using the imported formula and period totals
     const bonus = calculateSalesBonus(periodTotalSales, totalHours);
     
     const subtotalForOrlof = dayEarnings + eveningEarnings + bonus;
@@ -90,7 +106,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings
     remainingIncome -= step1Income;
 
     if (remainingIncome > 0) {
-      const step2Max = 1273190 - step1Max; // Fixed range
+      const step2Max = 1273190 - step1Max; 
       const step2Income = Math.min(remainingIncome, step2Max);
       calculatedTax += step2Income * 0.3795;
       remainingIncome -= step2Income;
@@ -117,31 +133,69 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings
       netPay,
       allowanceUsed: personalAllowance,
       totalHours,
-      periodTotalSales // Passing this out for display in tooltip if needed
+      periodTotalSales
     };
-  }, [shifts, sales, periodInfo, settings]);
+  }, [shifts, sales, activePeriod, settings]);
+
+  if (!payroll) return <div className="text-center p-20 text-slate-500">Hleð gögnum...</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700">
-      {/* ... Same header code as before ... */}
+      
+      {/* PERIOD SELECTOR HEADER */}
+      <div className="flex justify-between items-center px-4">
+         <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">Launaseðill</h2>
+         
+         <div className="flex items-center gap-4 bg-white/5 rounded-2xl p-2 border border-white/10">
+            <button 
+                onClick={() => setSelectedPeriodIndex(prev => Math.min(prev + 1, periods.length - 1))}
+                disabled={selectedPeriodIndex >= periods.length - 1}
+                className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+                <ChevronLeft size={20} />
+            </button>
+            
+            <div className="text-center min-w-[140px]">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">
+                    {selectedPeriodIndex === 0 ? 'Núverandi' : `${activePeriod.yearLabel}`}
+                </p>
+                <p className="text-sm font-bold text-white flex items-center justify-center gap-2">
+                    <Calendar size={14} className="text-slate-500" />
+                    {activePeriod.label}
+                </p>
+            </div>
+
+            <button 
+                onClick={() => setSelectedPeriodIndex(prev => Math.max(prev - 1, 0))}
+                disabled={selectedPeriodIndex === 0}
+                className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+                <ChevronRight size={20} />
+            </button>
+         </div>
+      </div>
       
       <div className="glass rounded-[48px] border-white/10 overflow-hidden relative shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
         <div className="h-2 w-full bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600" />
         <div className="p-8 md:p-14 space-y-12">
             
-          {/* ... Header Info ... */}
+          {/* Header Info */}
           <div className="flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="space-y-4">
               <h2 className="text-4xl font-black text-white italic tracking-tighter">TAKK ehf.</h2>
-              {/* ... */}
+              <p className="text-slate-400 text-sm font-medium">Laugavegur 123, 101 Reykjavík</p>
             </div>
             <div className="bg-white/2 border border-white/5 rounded-[32px] p-8 min-w-[280px]">
-               {/* ... User Info ... */}
-               <div className="text-right">
-                  <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Tímabil</p>
-                  <p className="text-indigo-400 font-black capitalize">{periodInfo.label}</p>
+               <div className="text-right space-y-4">
+                  <div>
+                      <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Starfsmaður</p>
+                      <p className="text-white font-bold">{userName}</p>
+                  </div>
+                  <div>
+                      <p className="text-slate-500 font-black uppercase text-[8px] tracking-widest mb-1">Tímabil</p>
+                      <p className="text-indigo-400 font-black capitalize">{activePeriod.label}</p>
+                  </div>
                </div>
-               {/* ... */}
             </div>
           </div>
 
@@ -198,7 +252,6 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], summary, settings
                </div>
              </section>
 
-             {/* ... Deductions and Totals (Same as before) ... */}
              <section className="space-y-6">
                 <div className="flex items-center gap-2 pb-4 border-b border-white/5">
                   <TrendingDown className="text-rose-400" size={18} />
