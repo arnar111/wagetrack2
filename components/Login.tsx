@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  LogIn, 
-  ShieldCheck, 
-  UserCircle2, 
-  Building2 
-} from 'lucide-react';
-import { signInAnonymously, signInWithPopup, auth, microsoftProvider } from '../firebase';
-import { LOGO_URL } from '../constants';
+import { Building2, ShieldAlert, KeyRound, Loader2, LogIn } from 'lucide-react';
+import { signInWithPopup, auth, microsoftProvider } from '../firebase.ts'; // Ensure .ts extension if needed
+import { LOGO_URL } from '../constants.ts';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -15,50 +10,89 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [staffId, setStaffId] = useState('');
   const [logoError, setLogoError] = useState(false);
-
-  const handleManualLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!staffId.trim()) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // For manual ID login, we still use anonymous auth under the hood
-      // to establish a secure connection to read the database
-      const result = await signInAnonymously(auth);
-      
-      // We store the ID the user typed so App.tsx can find their profile
-      localStorage.setItem('takk_last_staff_id', staffId);
-      
-      console.log("Login successful, user:", result.user.uid);
-      // The actual profile fetching happens in App.tsx via onAuthStateChanged
-    } catch (err) {
-      console.error(err);
-      setError('Innskráning mistókst. Reyndu aftur.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // Admin "God Mode" State
+  const [showAdminPopup, setShowAdminPopup] = useState(false);
+  const [targetStaffId, setTargetStaffId] = useState('');
 
   const handleMicrosoftLogin = async () => {
     setLoading(true);
     setError('');
     try {
       const result = await signInWithPopup(auth, microsoftProvider);
-      console.log("Microsoft User:", result.user);
-      // We don't need to save staffId to localStorage here; 
-      // App.tsx will find the user by their Microsoft UID automatically.
+      const user = result.user;
+      
+      console.log("Logged in as:", user.email);
+
+      // --- ADMIN CHECK ---
+      if (user.email && user.email.toLowerCase() === 'arnar.kjartansson@takk.co') {
+        // Stop the normal flow and show the admin popup
+        setLoading(false);
+        setShowAdminPopup(true);
+        return;
+      }
+
+      // For everyone else, clear any previous manual overrides
+      localStorage.removeItem('takk_last_staff_id');
+      
+      // The App.tsx auth listener will handle fetching the profile based on email/uid
     } catch (err: any) {
       console.error("Microsoft Login Error:", err);
-      setError('Microsoft innskráning mistókst.');
-    } finally {
+      setError('Innskráning mistókst. Ertu viss um að þú sért með aðgang?');
       setLoading(false);
     }
   };
 
+  const handleAdminOverride = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetStaffId.trim()) return;
+
+    // Force the system to think we are this user
+    localStorage.setItem('takk_last_staff_id', targetStaffId);
+    
+    // Reload to trigger App.tsx to fetch the new identity
+    window.location.reload();
+  };
+
+  // --- ADMIN POPUP RENDER ---
+  if (showAdminPopup) {
+    return (
+      <div className="min-h-screen bg-black/90 flex items-center justify-center p-4 backdrop-blur-xl">
+        <div className="glass p-8 rounded-[32px] border border-[#d4af37]/30 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-300">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="p-4 rounded-full bg-[#d4af37]/10 text-[#d4af37] mb-4">
+                <ShieldAlert size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Stjórnandagátt</h3>
+            <p className="text-xs text-[#d4af37] font-bold uppercase tracking-widest mt-2">Veldu notanda til að skoða</p>
+          </div>
+          
+          <form onSubmit={handleAdminOverride} className="space-y-4">
+            <div className="relative">
+                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input 
+                    type="text" 
+                    value={targetStaffId}
+                    onChange={(e) => setTargetStaffId(e.target.value)}
+                    placeholder="Staff ID (t.d. 123)"
+                    className="w-full bg-black/40 border border-[#d4af37]/30 text-[#d4af37] placeholder:text-slate-600 font-black text-center text-xl rounded-2xl py-4 pl-10 outline-none focus:ring-2 focus:ring-[#d4af37]"
+                    autoFocus
+                />
+            </div>
+            <button type="submit" className="w-full py-4 bg-[#d4af37] hover:bg-[#b5952f] text-black font-black uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95">
+                Opna Aðgang
+            </button>
+            <button type="button" onClick={() => window.location.reload()} className="w-full py-3 text-slate-500 font-bold text-xs uppercase hover:text-white transition-colors">
+                Hætta við (Skrá út)
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- STANDARD LOGIN RENDER ---
   return (
     <div className="min-h-screen bg-[#01040f] flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Animated Background */}
@@ -84,71 +118,43 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             )}
           </div>
           <div>
-            <h2 className="text-3xl font-black text-white tracking-tight">Velkomin/n</h2>
-            <p className="text-slate-400 font-medium">Skráðu þig inn til að halda áfram</p>
+            <h2 className="text-3xl font-black text-white tracking-tight uppercase italic">WageTrack Pro</h2>
+            <p className="text-slate-400 font-medium text-sm mt-2">Skráðu þig inn með Microsoft aðgangi</p>
           </div>
         </div>
 
         {/* Card */}
-        <div className="glass p-8 rounded-[30px] border border-white/10 shadow-2xl backdrop-blur-xl">
+        <div className="glass p-8 rounded-[40px] border border-white/10 shadow-2xl backdrop-blur-xl">
           <div className="space-y-6">
             
-            {/* Microsoft Login Button */}
+            {/* Microsoft Login Button Only */}
             <button
               type="button"
               onClick={handleMicrosoftLogin}
               disabled={loading}
-              className="w-full bg-[#2F2F2F] hover:bg-[#3F3F3F] text-white p-4 rounded-xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 border border-white/10 group"
+              className="w-full bg-[#2F2F2F] hover:bg-[#3F3F3F] text-white p-5 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 border border-white/10 group shadow-xl"
             >
-              <Building2 className="w-5 h-5 text-[#00A4EF]" />
+              {loading ? (
+                  <Loader2 className="animate-spin text-indigo-400" />
+              ) : (
+                  <Building2 className="w-5 h-5 text-[#00A4EF]" />
+              )}
               <span>Innskráning með Microsoft</span>
             </button>
 
-            <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-white/10"></div>
-              <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-widest">Eða notaðu ID</span>
-              <div className="flex-grow border-t border-white/10"></div>
+            {error && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-3 text-rose-400 animate-in fade-in slide-in-from-top-2">
+                <ShieldAlert className="h-5 w-5 flex-shrink-0" />
+                <p className="text-xs font-bold">{error}</p>
+              </div>
+            )}
+
+            <div className="text-center">
+                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+                    Aðeins fyrir starfsmenn Takk ehf.
+                </p>
             </div>
 
-            <form onSubmit={handleManualLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest ml-1">Starfsmannanúmer</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <UserCircle2 className="h-5 w-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-                  </div>
-                  <input
-                    type="text"
-                    value={staffId}
-                    onChange={(e) => setStaffId(e.target.value)}
-                    className="block w-full pl-11 pr-4 py-4 bg-black/20 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all font-bold text-lg"
-                    placeholder="t.d. 570"
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-400 animate-in fade-in slide-in-from-top-2">
-                  <ShieldCheck className="h-5 w-5 flex-shrink-0" />
-                  <p className="text-sm font-bold">{error}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full gradient-bg p-4 rounded-xl font-black text-white tracking-wide shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <LogIn className="w-5 h-5" />
-                    <span>SKRÁ INN</span>
-                  </>
-                )}
-              </button>
-            </form>
           </div>
         </div>
       </div>
