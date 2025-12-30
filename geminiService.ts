@@ -5,9 +5,6 @@ import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 const FAST_MODEL = "gemini-3-flash-preview"; 
 const SMART_MODEL = "gemini-3-pro-preview";
 
-/**
- * Safely retrieves the API key without crashing the app.
- */
 const getApiKey = (): string => {
   try {
     // @ts-ignore
@@ -24,7 +21,7 @@ const getApiKey = (): string => {
 const getModel = (modelName: string) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("⚠️ Gemini API Key is missing. Check your Netlify Environment Variables.");
+    console.warn("⚠️ Gemini API Key is missing.");
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -40,7 +37,7 @@ export interface SpeechResult {
   sources: { title: string; uri: string }[];
 }
 
-// --- CONVERSATIONAL AI (Chatbot) ---
+// --- CONVERSATIONAL AI ---
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
   const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
@@ -56,45 +53,25 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
     const result = await chat.sendMessage(lastMsg.parts[0].text);
     return result.response.text();
   } catch (e) {
-    console.error("Gemini Chat Error:", e);
-    return "Tengingarvilla hjá Adda (Net eða API). Reyndu aftur síðar.";
+    console.error("Chat Error:", e);
+    return "Tengingarvilla hjá Adda.";
   }
 };
 
-// --- SALES COACH (MORRI AI) ---
+// --- SALES COACH ---
 export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> => {
   const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
 
   try {
     const prompt = `
-      Ég er sölumaður í síma (fjáröflun). Í dag lenti ég í þessum hindrunum: ${hurdles.join(', ')}.
-      Greindu daginn minn stuttlega og gefðu mér 3 hnitmiðuð, öflug ráð (bullet points).
-      Reglur:
-      1. Vertu stuttorður og hvetjandi (eins og reyndur sölustjóri sem heitir Morri).
-      2. Svaraðu á ÍSLENSKU.
-      3. Engin inngangur, bara ráðin.
+      Ég er sölumaður (fjáröflun). Hindranir í dag: ${hurdles.join(', ')}.
+      Gefðu mér 3 stutt, öflug ráð (bullet points). Svaraðu á ÍSLENSKU.
     `;
     const result = await model.generateContent(prompt);
-    return result.response.text().replace(/[*#]/g, '') || "Gat ekki greint gögnin.";
+    return result.response.text().replace(/[*#]/g, '') || "Engin ráð fundust.";
   } catch (e) {
-    console.error("Coach Error:", e);
-    return "Villa við tengingu við MorriAI.";
-  }
-};
-
-// --- DASHBOARD INSIGHTS ---
-export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  const model = getModel(FAST_MODEL);
-  if (!model) return "Bíður eftir lykli...";
-  
-  try {
-    const prompt = `Greindu eftirfarandi gögn fyrir starfsmann hjá TAKK: Vaktir: ${shifts.length}, Samtals klukkustundir: ${summary.totalHours}, Samtals sala: ${summary.totalSales}. Svaraðu á ÍSLENSKU, notaðu hreinan texta án allra tákna, max 3 stuttar línur. Vertu hvetjandi.`;
-    const result = await model.generateContent(prompt);
-    return result.response.text().replace(/[*#]/g, '') || "Greining fannst ekki.";
-  } catch (e) {
-    console.error("Insights Error:", e);
-    return "Villa við tengingu.";
+    return "Villa við MorriAI.";
   }
 };
 
@@ -110,91 +87,75 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json" }
     });
-    const text = stripMarkdown(result.response.text() || "{}");
-    return JSON.parse(text);
+    return JSON.parse(stripMarkdown(result.response.text()));
   } catch (e) {
-    console.error("Manager AI Error:", e);
-    return { strategicAdvice: "AI greining tókst ekki.", topProject: "Gagna vantar" };
+    return { strategicAdvice: "AI villa.", topProject: "Gagna vantar" };
   }
 };
 
 // --- SCRIPT GENERATOR ---
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
   const model = getModel(FAST_MODEL);
-  const fallback = { text: "AI lykill vantar.", sources: [] };
-  if (!model) return fallback;
+  if (!model) return { text: "AI lykill vantar.", sources: [] };
 
   try {
-    const systemInstruction = `Þú ert reyndur sölumaður fyrir góðgerðarfélög. Skrifaðu sannfærandi texta.`;
-    let userPrompt = mode === 'create' 
-      ? `Skrifaðu söluræðu fyrir ${project}. 70-100 orð. Íslenska. Hvetjandi.`
-      : `Hvað gerir ${project}? Gefðu stutt yfirlit (bullet points) á íslensku.`;
+    const systemInstruction = `Þú ert reyndur sölumaður. Skrifaðu sannfærandi texta.`;
+    const userPrompt = mode === 'create' 
+      ? `Skrifaðu söluræðu fyrir ${project}. 70-100 orð. Íslenska.`
+      : `Hvað gerir ${project}? Stutt yfirlit á íslensku.`;
     
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\-_>]/g, '').trim(), sources: [] };
   } catch (e) {
-    console.error("Script Gen Error:", e);
-    return fallback;
+    return { text: "Villa við að sækja ræðu.", sources: [] };
   }
 };
 
-// --- SMART DASHBOARD (FIXED LOGIC) ---
+// --- DASHBOARD ANALYSIS (Context Aware) ---
 export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodSales: number, goals: Goals) => {
   const model = getModel(FAST_MODEL);
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
 
   try {
-    // Explicitly separating Today vs Month so the AI doesn't get confused
     const prompt = `
-      Greindu stöðuna mína í sölu (fjáröflun) núna:
+      Greindu stöðuna (fjáröflun):
+      DAGURINN: Sala ${salesToday} kr (Markmið ${goals.daily} kr).
+      MÁNUÐURINN: Sala ${totalPeriodSales} kr (Markmið ${goals.monthly} kr).
       
-      DAGURINN Í DAG:
-      - Sala í dag: ${salesToday} kr.
-      - Dagsmarkmið: ${goals.daily} kr.
-      
-      MÁNUÐURINN (Heild):
-      - Heildarsala tímabils: ${totalPeriodSales} kr.
-      - Mánaðarmarkmið: ${goals.monthly} kr.
-
-      Verkefni:
-      1. Berðu "Sala í dag" saman við "Dagsmarkmið". Ef ég er undir, hvettu mig. Ef ég er yfir, hrósaðu.
-      2. Gefðu stutta athugasemd um mánaðarstöðuna.
-      
-      Svaraðu í JSON formi á ÍSLENSKU. 
-      Format: {"smartAdvice": "stutt ráð (max 10 orð)", "trend": "up/down/stable", "motivationalQuote": "Góð tilvitnun", "projectedEarnings": ${totalPeriodSales}}
+      Svaraðu í JSON á ÍSLENSKU.
+      Format: {"smartAdvice": "mjög stutt ráð (max 8 orð)", "trend": "up/down/stable", "motivationalQuote": "tilvitnun", "projectedEarnings": ${totalPeriodSales}}
     `;
-
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json" }
     });
-
-    const text = stripMarkdown(result.response.text() || "{}");
-    return JSON.parse(text);
+    return JSON.parse(stripMarkdown(result.response.text()));
   } catch (e) {
-    console.error("Dashboard AI Error:", e);
     return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
   }
 };
 
-// --- PROJECT COMPARISON ---
-export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
+// --- PROJECT INSIGHTS (NEW JSON FORMAT) ---
+export const getAIProjectComparison = async (sales: Sale[]) => {
   const model = getModel(FAST_MODEL);
-  if (!model) return "Bíður eftir lykli...";
+  if (!model) return { headline: "Bíður eftir lykli...", tip: "Skráðu fleiri sölur." };
 
-  const summary: Record<string, { total: number, count: number }> = {};
-  sales.forEach(sale => {
-    if (!summary[sale.project]) summary[sale.project] = { total: 0, count: 0 };
-    summary[sale.project].total += sale.amount;
-    summary[sale.project].count += 1;
-  });
+  const summary: Record<string, number> = {};
+  sales.forEach(s => summary[s.project] = (summary[s.project] || 0) + s.amount);
 
   try {
-    const prompt = `Greindu tölurnar: ${JSON.stringify(summary)}. Hvað gengur best? Svaraðu á ÍSLENSKU. Max 150 orð.`;
-    const result = await model.generateContent(prompt);
-    return result.response.text().replace(/[*#]/g, '') || "Engin greining.";
+    const prompt = `
+      Greindu þessa sölu eftir verkefnum: ${JSON.stringify(summary)}.
+      1. Hvað stendur upp úr? (Headline - max 6 orð).
+      2. Hvað má betur fara? (Tip - max 10 orð).
+      Svaraðu í JSON. Format: {"headline": "...", "tip": "..."}
+    `;
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+    return JSON.parse(stripMarkdown(result.response.text()));
   } catch (e) {
-    console.error("Comparison AI Error:", e);
-    return "Villa við AI samanburð.";
+    return { headline: "Engin greining.", tip: "Haltu áfram að selja." };
   }
 };
