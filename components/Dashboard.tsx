@@ -27,16 +27,22 @@ const Dashboard: React.FC<DashboardProps> = ({
     setIsShiftActive(active);
   }, []);
 
+  // --- Calculate Sales Today ---
+  const salesToday = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return sales.filter(s => s.date === todayStr).reduce((acc, s) => acc + s.amount, 0);
+  }, [sales]);
+
   // --- AI Analysis ---
   useEffect(() => {
     const fetchAI = async () => {
-        if (shifts.length > 0) {
-            const data = await getSmartDashboardAnalysis(shifts, goals, summary);
-            setAiData(data);
-        }
+        // Now passing explicit Sales Today vs Total Sales so AI isn't confused
+        const data = await getSmartDashboardAnalysis(salesToday, summary.totalSales, goals);
+        setAiData(data);
     };
-    fetchAI();
-  }, [shifts.length, summary.totalSales]);
+    // Debounce slightly or run only when major data changes to save API calls
+    if (sales.length > 0) fetchAI();
+  }, [salesToday, summary.totalSales, goals.daily, goals.monthly]);
 
   // --- Calculations ---
   const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
@@ -59,27 +65,23 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // --- Chart Data Preparation ---
   const chartData = useMemo(() => {
-    // 1. Group sales by date for the period
     const salesByDate: Record<string, number> = {};
     periodShifts.forEach(s => {
         const d = s.date.split('T')[0];
         salesByDate[d] = (salesByDate[d] || 0) + s.totalSales;
     });
 
-    // 2. Sort dates chronologically
     const sortedDates = Object.keys(salesByDate).sort();
     
-    // 3. Create cumulative points
     let cumulative = 0;
     const points = sortedDates.map(date => {
         cumulative += salesByDate[date];
         return { date, value: cumulative, daily: salesByDate[date] };
     });
 
-    // 4. Normalize for SVG (0-100 range)
-    if (points.length === 0) return { points: [], svgPath: "", fillPath: "", max: goals.monthly };
+    if (points.length === 0) return { points: [], svgPath: "", fillPath: "", max: goals.monthly, bestDay: 0 };
 
-    const maxVal = Math.max(goals.monthly, cumulative * 1.1); // Scale to goal or current total + 10%
+    const maxVal = Math.max(goals.monthly, cumulative * 1.1);
     const width = 100;
     const height = 50;
     
@@ -89,7 +91,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         return `${x},${y}`;
     });
 
-    // Smooth line curve
     const svgPath = `M ${svgPoints.join(" L ")}`;
     const fillPath = `${svgPath} L 100,50 L 0,50 Z`;
 
@@ -189,11 +190,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* --- NEW VISUAL INFOGRAPH: SALES TREND --- */}
+      {/* --- SALES TREND CHART --- */}
       <div className="glass p-8 rounded-[48px] border-white/10 relative overflow-hidden">
-         {/* Background Grid */}
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
-         
          <div className="relative z-10 flex flex-col md:flex-row gap-8">
             <div className="flex-1">
                 <div className="flex items-center justify-between mb-6">
@@ -206,43 +205,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* THE CHART */}
                 <div className="h-48 w-full relative">
                     {chartData.points.length > 1 ? (
                         <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-                            {/* Gradient Defs */}
                             <defs>
                                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
                                     <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
                                 </linearGradient>
                             </defs>
-                            
-                            {/* Target Line */}
                             <line 
-                                x1="0" 
-                                y1={50 - (goals.monthly / chartData.max) * 50} 
-                                x2="100" 
-                                y2={50 - (goals.monthly / chartData.max) * 50} 
-                                stroke="#475569" 
-                                strokeWidth="0.5" 
-                                strokeDasharray="2" 
+                                x1="0" y1={50 - (goals.monthly / chartData.max) * 50} 
+                                x2="100" y2={50 - (goals.monthly / chartData.max) * 50} 
+                                stroke="#475569" strokeWidth="0.5" strokeDasharray="2" 
                             />
-                            
-                            {/* Area Fill */}
                             <path d={chartData.fillPath} fill="url(#chartGradient)" />
-                            
-                            {/* Line Stroke */}
                             <path d={chartData.svgPath} fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                            
-                            {/* Data Points */}
                             {chartData.points.map((p, i) => {
                                 const x = (i / (chartData.points.length - 1)) * 100;
                                 const y = 50 - (p.value / chartData.max) * 50;
                                 return (
                                     <g key={i} className="group cursor-pointer">
                                         <circle cx={x} cy={y} r="1.5" className="fill-indigo-400 group-hover:fill-white transition-all group-hover:r-2" />
-                                        {/* Tooltip on hover */}
                                         <foreignObject x={x - 10} y={y - 15} width="40" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity overflow-visible">
                                             <div className="bg-slate-900 text-white text-[6px] font-bold px-2 py-1 rounded-md text-center shadow-lg border border-white/10 whitespace-nowrap">
                                                 {formatISK(p.value)}
@@ -259,7 +243,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )}
                 </div>
                 
-                {/* Labels */}
                 <div className="flex justify-between mt-2 text-[8px] font-bold text-slate-500 uppercase tracking-widest">
                     <span>26. {new Date().getMonth() === 0 ? 'Des' : 'í síðasta mán'}</span>
                     <span>Í dag</span>
