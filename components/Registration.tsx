@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Shift, Sale, Goals } from '../types';
 import { PROJECTS } from '../constants';
-import { ShoppingBag, TrendingUp, Clock, LogIn, LogOut, CheckCircle2, Sparkles, Target, Flame, Trophy, X, ArrowUpRight, ArrowDownRight, Sun, Moon, Edit2, Trash2 } from 'lucide-react';
+import { ShoppingBag, TrendingUp, Clock, LogIn, LogOut, CheckCircle2, Sparkles, Target, Flame, Trophy, X, ArrowUpRight, ArrowDownRight, Sun, Moon, Edit2, Trash2, UserPlus, TrendingUp as TrendingUpIcon } from 'lucide-react';
 
 interface RegistrationProps {
   onSaveShift: (shift: Shift) => void;
@@ -33,10 +33,13 @@ const Registration: React.FC<RegistrationProps> = ({
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [editAmount, setEditAmount] = useState(0);
   const [editProject, setEditProject] = useState(PROJECTS[0]);
+  const [editType, setEditType] = useState<'new' | 'upgrade'>('new');
 
   // Live Hours State
   const [liveHours, setLiveHours] = useState({ day: 0, evening: 0 });
 
+  // New Sale State
+  const [saleType, setSaleType] = useState<'new' | 'upgrade'>('new');
   const [saleData, setSaleData] = useState({
     amount: 0,
     project: PROJECTS[0]
@@ -83,6 +86,7 @@ const Registration: React.FC<RegistrationProps> = ({
     if (editingSale) {
         setEditAmount(editingSale.amount);
         setEditProject(editingSale.project);
+        setEditType(editingSale.saleType || 'new');
     }
   }, [editingSale]);
 
@@ -101,7 +105,7 @@ const Registration: React.FC<RegistrationProps> = ({
       }
     };
 
-    updateTime(); // Run immediately
+    updateTime(); 
     const timer = setInterval(updateTime, 30000);
     return () => clearInterval(timer);
   }, [clockInTime, getRoundedTime, calculateShiftSplit]);
@@ -119,14 +123,17 @@ const Registration: React.FC<RegistrationProps> = ({
   const todaySales = useMemo(() => currentSales.filter(s => s.date === todayStr), [currentSales, todayStr]);
   const totalSalesToday = useMemo(() => todaySales.reduce((acc, s) => acc + s.amount, 0), [todaySales]);
   
+  // Breakdown Counts
+  const newSalesCount = useMemo(() => todaySales.filter(s => s.saleType !== 'upgrade').length, [todaySales]);
+  const upgradeSalesCount = useMemo(() => todaySales.filter(s => s.saleType === 'upgrade').length, [todaySales]);
+
   const { avgSalesPerHour, avgShiftLength } = useMemo(() => {
-    if (shifts.length === 0) return { avgSalesPerHour: 0, avgShiftLength: 4 }; // Default to 4h if no history
+    if (shifts.length === 0) return { avgSalesPerHour: 0, avgShiftLength: 4 }; 
     
     const totalHistorySales = shifts.reduce((acc, s) => acc + s.totalSales, 0);
     const totalHistoryHours = shifts.reduce((acc, s) => acc + (s.dayHours + s.eveningHours), 0);
     
     const avgSpeed = totalHistoryHours > 0 ? totalHistorySales / totalHistoryHours : 0;
-    // Calculate average shift length from history
     const avgLen = totalHistoryHours / shifts.length;
     
     return { avgSalesPerHour: avgSpeed, avgShiftLength: avgLen };
@@ -142,14 +149,9 @@ const Registration: React.FC<RegistrationProps> = ({
 
   const currentShiftDuration = liveHours.day + liveHours.evening;
   
-  // --- CORRECTED PROJECTION LOGIC ---
-  // 1. Calculate hours remaining based on YOUR average shift length (not hardcoded 4)
+  // Projection Logic
   const hoursRemaining = Math.max(0, avgShiftLength - currentShiftDuration);
-  
-  // 2. Projected = Sales so far + (Average Speed * Hours Left)
   const rawProjection = totalSalesToday + (avgSalesPerHour * hoursRemaining);
-  
-  // 3. Round to nearest 100
   const projectedFinal = Math.round(rawProjection / 100) * 100;
 
   // --- Actions ---
@@ -170,7 +172,6 @@ const Registration: React.FC<RegistrationProps> = ({
     localStorage.setItem('takk_shift_start', start.toISOString());
     setNotification({ msg: `Markmið sett: ${formatISK(newGoal)}. Gangi þér vel!`, type: 'success' });
     setShowGoalInput(false);
-    
     setLiveHours({ day: 0, evening: 0 });
   };
 
@@ -205,6 +206,7 @@ const Registration: React.FC<RegistrationProps> = ({
       timestamp: new Date().toISOString(),
       amount: saleData.amount,
       project: saleData.project,
+      saleType: saleType, // Save the selected type
       userId: '' 
     });
     setSaleData({ ...saleData, amount: 0 });
@@ -216,7 +218,8 @@ const Registration: React.FC<RegistrationProps> = ({
         onUpdateSale({
             ...editingSale,
             amount: editAmount,
-            project: editProject
+            project: editProject,
+            saleType: editType
         });
         setEditingSale(null);
         setNotification({ msg: "Færsla uppfærð!", type: 'success' });
@@ -235,10 +238,9 @@ const Registration: React.FC<RegistrationProps> = ({
   // Visuals
   const progressPercent = Math.min(100, (totalSalesToday / goals.daily) * 100);
   const remainingAmount = Math.max(0, goals.daily - totalSalesToday);
-  // Calculate speed needed for the remaining time (avoid division by zero)
   const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); 
 
-  const averageShiftSales = avgSalesPerHour * avgShiftLength; // Compare against your actual avg shift total
+  const averageShiftSales = avgSalesPerHour * avgShiftLength; 
   const performanceDiff = totalSalesToday - averageShiftSales;
   const performancePercent = averageShiftSales > 0 ? (performanceDiff / averageShiftSales) * 100 : 0;
   const isPerformingWell = performanceDiff >= 0;
@@ -251,11 +253,7 @@ const Registration: React.FC<RegistrationProps> = ({
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="glass p-8 rounded-[40px] w-full max-w-sm border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] text-center relative">
                 <button onClick={() => setShowGoalInput(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
-                <div className="mb-6 flex justify-center">
-                    <div className="p-4 rounded-full bg-emerald-500/20 text-emerald-400">
-                        <Target size={32} />
-                    </div>
-                </div>
+                <div className="mb-6 flex justify-center"><div className="p-4 rounded-full bg-emerald-500/20 text-emerald-400"><Target size={32} /></div></div>
                 <h3 className="text-2xl font-black text-white italic tracking-tighter mb-2">Hvað er dagsmarkmiðið?</h3>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6">Settu þér markmið og rústaðu því!</p>
                 <input type="number" value={tempGoal} onChange={(e) => setTempGoal(e.target.value)} className="w-full bg-black/40 border border-emerald-500/30 p-4 rounded-2xl text-center text-3xl font-black text-white outline-none focus:ring-2 focus:ring-emerald-500 mb-6" autoFocus />
@@ -271,6 +269,10 @@ const Registration: React.FC<RegistrationProps> = ({
                 <button onClick={() => setEditingSale(null)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
                 <h3 className="text-xl font-black text-white italic tracking-tighter mb-6 text-center">Breyta Færslu</h3>
                 <div className="space-y-4">
+                    <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-4">
+                        <button onClick={() => setEditType('new')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${editType === 'new' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Nýr</button>
+                        <button onClick={() => setEditType('upgrade')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${editType === 'upgrade' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Hækkun</button>
+                    </div>
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Upphæð</label>
                         <input type="number" value={editAmount} onChange={(e) => setEditAmount(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-2xl font-black text-white outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -307,10 +309,7 @@ const Registration: React.FC<RegistrationProps> = ({
                 {clockInTime ? 'Vakt í gangi - Gangi þér vel!' : 'Byrjaðu vaktina'}
             </p>
          </div>
-         <button 
-            onClick={handleClockClick}
-            className={`w-full md:w-auto px-8 py-4 rounded-[24px] font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${clockInTime ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}
-         >
+         <button onClick={handleClockClick} className={`w-full md:w-auto px-8 py-4 rounded-[24px] font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${clockInTime ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
             {clockInTime ? <LogOut size={20} /> : <LogIn size={20} />}
             {clockInTime ? "Skrá út" : "Skrá inn"}
          </button>
@@ -318,65 +317,39 @@ const Registration: React.FC<RegistrationProps> = ({
 
       {/* METRICS ROW */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {/* Metric 1 */}
         <div className="glass p-5 rounded-[32px] border-white/10 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tímar í dag</p>
-                <div className={`p-1 rounded-full ${clockInTime ? 'bg-emerald-500/20 text-emerald-400 animate-pulse' : 'bg-white/10 text-slate-500'}`}><Clock size={12} /></div>
-            </div>
+            <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tímar í dag</p><div className={`p-1 rounded-full ${clockInTime ? 'bg-emerald-500/20 text-emerald-400 animate-pulse' : 'bg-white/10 text-slate-500'}`}><Clock size={12} /></div></div>
             <div className="flex items-baseline gap-3 mt-1">
                 <div className="flex items-center gap-1"><Sun size={12} className="text-indigo-400" /><span className="text-lg font-black text-white">{liveHours.day.toFixed(1)}</span></div>
                 <div className="flex items-center gap-1"><Moon size={12} className="text-violet-400" /><span className="text-lg font-black text-white">{liveHours.evening.toFixed(1)}</span></div>
             </div>
         </div>
 
-        {/* Metric 2 */}
         <div onClick={() => setExpandedMetric(expandedMetric === 'today' ? null : 'today')} className="glass p-5 rounded-[32px] border-indigo-500/10 cursor-pointer hover:bg-white/5 transition-all group">
-            <div className="flex justify-between items-start mb-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sala dagsins</p>
-                <div className="p-1 rounded-full bg-indigo-500/20 text-indigo-400"><Sparkles size={12} /></div>
-            </div>
+            <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sala dagsins</p><div className="p-1 rounded-full bg-indigo-500/20 text-indigo-400"><Sparkles size={12} /></div></div>
             <p className="text-xl font-black text-white">{formatISK(totalSalesToday)}</p>
-            {expandedMetric === 'today' && (
-                <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1">
-                    Markmið: {formatISK(goals.daily)} <br/>
-                    <span className="text-rose-400 font-bold">Vantar: {formatISK(remainingAmount)}</span>
-                </div>
-            )}
+            {expandedMetric === 'today' && (<div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1">Markmið: {formatISK(goals.daily)} <br/><span className="text-rose-400 font-bold">Vantar: {formatISK(remainingAmount)}</span></div>)}
         </div>
 
-        {/* Metric 3 */}
         <div className="glass p-5 rounded-[32px] border-emerald-500/10">
-            <div className="flex justify-between items-start mb-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p>
-                <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400"><TrendingUp size={12} /></div>
-            </div>
+            <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Meðaltal / klst</p><div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400"><TrendingUp size={12} /></div></div>
             <p className="text-xl font-black text-emerald-400">{formatISK(avgSalesPerHour)}</p>
         </div>
 
-        {/* Metric 4 */}
+        {/* METRIC 4: COUNT WITH BREAKDOWN */}
         <div className="glass p-5 rounded-[32px] border-violet-500/10">
-            <div className="flex justify-between items-start mb-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p>
-                <div className="p-1 rounded-full bg-violet-500/20 text-violet-400"><Target size={12} /></div>
+            <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Fjöldi sala</p><div className="p-1 rounded-full bg-violet-500/20 text-violet-400"><Target size={12} /></div></div>
+            <p className="text-xl font-black text-violet-400 mb-1">{todaySales.length}</p>
+            <div className="flex items-center gap-3 border-t border-white/5 pt-2">
+                <span className="text-[9px] font-bold text-indigo-400 flex items-center gap-1"><UserPlus size={8} /> {newSalesCount}</span>
+                <span className="text-[9px] font-bold text-amber-400 flex items-center gap-1"><TrendingUpIcon size={8} /> {upgradeSalesCount}</span>
             </div>
-            <p className="text-xl font-black text-violet-400">{todaySales.length}</p>
         </div>
 
-        {/* Metric 5 - CORRECTED */}
         <div onClick={() => setExpandedMetric(expandedMetric === 'proj' ? null : 'proj')} className="glass p-5 rounded-[32px] border-indigo-500/20 relative overflow-hidden cursor-pointer hover:bg-white/5 transition-all">
-            <div className="flex justify-between items-start mb-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Áætluð lokasala</p>
-                {expandedMetric === 'proj' && <Sparkles size={10} className="text-indigo-400" />}
-            </div>
+            <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Áætluð lokasala</p>{expandedMetric === 'proj' && <Sparkles size={10} className="text-indigo-400" />}</div>
             <p className="text-xl font-black text-indigo-400">{formatISK(projectedFinal)}</p>
-            {expandedMetric === 'proj' && (
-                <div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1">
-                    <span className="block text-slate-500 mb-1">Byggt á {avgShiftLength.toFixed(1)} klst meðalvakt:</span>
-                    <span className="text-emerald-400 font-bold">{formatISK(requiredSpeed)} / klst</span> <br/>
-                    til að ná markmiði.
-                </div>
-            )}
+            {expandedMetric === 'proj' && (<div className="mt-2 pt-2 border-t border-white/5 text-[10px] text-slate-400 animate-in slide-in-from-top-1"><span className="block text-slate-500 mb-1">Byggt á {avgShiftLength.toFixed(1)} klst meðalvakt:</span><span className="text-emerald-400 font-bold">{formatISK(requiredSpeed)} / klst</span> <br/>til að ná markmiði.</div>)}
         </div>
       </div>
 
@@ -386,10 +359,24 @@ const Registration: React.FC<RegistrationProps> = ({
         {/* Left Column - Sales */}
         <div className="lg:col-span-2 glass p-8 md:p-10 rounded-[40px] border-white/10 flex flex-col shadow-2xl relative h-full">
           <div className="flex-grow">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><ShoppingBag size={24} /></div>
-              <div><h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Skrá Sölu</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Bættu við árangurinn þinn</p></div>
+            
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><ShoppingBag size={24} /></div>
+                    <div><h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Skrá Sölu</h3><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Bættu við árangurinn þinn</p></div>
+                </div>
+                
+                {/* TOGGLE BUTTONS */}
+                <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full md:w-auto">
+                    <button onClick={() => setSaleType('new')} className={`flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${saleType === 'new' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+                        <UserPlus size={14} /> Nýr
+                    </button>
+                    <button onClick={() => setSaleType('upgrade')} className={`flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${saleType === 'upgrade' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+                        <TrendingUpIcon size={14} /> Hækkun
+                    </button>
+                </div>
             </div>
+
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
               {PROJECTS.map(p => (
                 <button key={p} onClick={() => setSaleData({...saleData, project: p})} className={`p-4 rounded-2xl border text-[10px] font-black transition-all ${saleData.project === p ? 'gradient-bg text-white border-white/20 shadow-lg scale-105' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'}`}>{p}</button>
@@ -405,9 +392,15 @@ const Registration: React.FC<RegistrationProps> = ({
              <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                 {todaySales.length > 0 ? [...todaySales].reverse().map(s => (
                   <div key={s.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-indigo-500" /><div className="flex flex-col"><span className="font-black text-white text-xs">{s.project}</span><span className="text-[9px] text-slate-500">{new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div></div>
+                      <div className="flex items-center gap-3">
+                          <div className={`h-2 w-2 rounded-full ${s.saleType === 'upgrade' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+                          <div className="flex flex-col"><span className="font-black text-white text-xs">{s.project}</span><span className="text-[9px] text-slate-500">{new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div>
+                      </div>
                       <div className="flex items-center gap-4">
-                          <span className="font-black text-indigo-400 text-sm">{formatISK(s.amount)}</span>
+                          <div className="flex flex-col items-end">
+                              <span className="font-black text-white text-sm">{formatISK(s.amount)}</span>
+                              {s.saleType === 'upgrade' && <span className="text-[8px] font-bold text-amber-400 uppercase tracking-widest">Hækkun</span>}
+                          </div>
                           <div className="flex gap-2">
                               <button onClick={() => setEditingSale(s)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"><Edit2 size={14} /></button>
                               <button onClick={() => handleDelete(s.id)} className="p-2 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-all"><Trash2 size={14} /></button>
