@@ -1,6 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
+// --- CONFIGURATION (DEC 2025 STANDARDS) ---
+const FAST_MODEL = "gemini-3-flash-preview"; 
+const SMART_MODEL = "gemini-3-pro-preview";
+
 /**
  * Safely retrieves the API key without crashing the app.
  */
@@ -17,13 +21,14 @@ const getApiKey = (): string => {
   return "";
 };
 
-const getModel = (modelName: string = "gemini-1.5-flash") => {
+const getModel = (modelName: string) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("⚠️ Gemini API Key is missing.");
+    console.warn("⚠️ Gemini API Key is missing. Check your Netlify Environment Variables.");
     return null;
   }
   const genAI = new GoogleGenerativeAI(apiKey);
+  // Note: Ensure 'Generative AI Experimental' API is enabled in Google Cloud Console for Preview models
   return genAI.getGenerativeModel({ model: modelName });
 };
 
@@ -36,9 +41,9 @@ export interface SpeechResult {
   sources: { title: string; uri: string }[];
 }
 
-// --- RESTORED FUNCTION ---
+// --- CONVERSATIONAL AI (Chatbot) ---
 export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
 
   try {
@@ -56,14 +61,14 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
     const result = await chat.sendMessage(lastMsg.parts[0].text);
     return result.response.text();
   } catch (e) {
-    console.error(e);
-    return "Tengingarvilla hjá Adda. Reyndu aftur síðar.";
+    console.error("Gemini Chat Error:", e);
+    return "Tengingarvilla hjá Adda (Net eða API). Reyndu aftur síðar.";
   }
 };
 
 // --- SALES COACH (MORRI AI) ---
 export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
 
   try {
@@ -81,12 +86,14 @@ export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> =>
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Gat ekki greint gögnin.";
   } catch (e) {
+    console.error("Coach Error:", e);
     return "Villa við tengingu við MorriAI.";
   }
 };
 
+// --- DASHBOARD INSIGHTS ---
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
   
   try {
@@ -94,12 +101,14 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Greining fannst ekki.";
   } catch (e) {
+    console.error("Insights Error:", e);
     return "Villa við tengingu.";
   }
 };
 
+// --- MANAGER STRATEGY ---
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  const model = getModel("gemini-1.5-pro");
+  const model = getModel(SMART_MODEL); // Uses Pro model for better reasoning
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
   try {
@@ -116,12 +125,14 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
     const text = stripMarkdown(result.response.text() || "{}");
     return JSON.parse(text);
   } catch (e) {
+    console.error("Manager AI Error:", e);
     return { strategicAdvice: "AI greining tókst ekki.", topProject: "Gagna vantar" };
   }
 };
 
+// --- SCRIPT GENERATOR ---
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   const fallback = { text: "AI lykill vantar.", sources: [] };
   if (!model) return fallback;
 
@@ -145,12 +156,14 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\-_>]/g, '').trim(), sources: [] };
   } catch (e) {
+    console.error("Script Gen Error:", e);
     return fallback;
   }
 };
 
+// --- SMART DASHBOARD ---
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
 
   try {
@@ -165,12 +178,14 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
     const text = stripMarkdown(result.response.text() || "{}");
     return JSON.parse(text);
   } catch (e) {
+    console.error("Dashboard AI Error:", e);
     return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
   }
 };
 
+// --- PROJECT COMPARISON ---
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
-  const model = getModel("gemini-1.5-flash");
+  const model = getModel(FAST_MODEL);
   if (!model) return "Bíður eftir lykli...";
 
   const summary: Record<string, { total: number, count: number }> = {};
@@ -190,6 +205,7 @@ export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => 
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || "Engin greining.";
   } catch (e) {
+    console.error("Comparison AI Error:", e);
     return "Villa við AI samanburð.";
   }
 };
