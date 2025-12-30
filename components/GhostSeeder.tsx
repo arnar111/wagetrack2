@@ -10,7 +10,7 @@ const GhostSeeder: React.FC = () => {
   const [status, setStatus] = useState("");
 
   const generateData = async () => {
-    if (!confirm("Þetta eyðir ÖLLUM eldri gögnum fyrir notanda 123 og býr til ný. Halda áfram?")) return;
+    if (!confirm("Þetta eyðir ÖLLUM eldri gögnum fyrir notanda 123 og býr til ný (8klst vaktir). Halda áfram?")) return;
     
     setLoading(true);
     const STAFF_ID = "123";
@@ -46,18 +46,18 @@ const GhostSeeder: React.FC = () => {
             // 5% chance to skip a day (sick/off)
             if (Math.random() < 0.05) continue;
 
-            // --- TARGET CALCULATION ---
-            const rand = Math.random();
+            // --- TARGET CALCULATION (Sales) ---
+            const randSale = Math.random();
             let rawTarget = 0;
 
-            if (rand < 0.1) {
+            if (randSale < 0.1) {
                 // BAD DAY: 13.000 - 22.000
                 rawTarget = 13000 + Math.random() * 9000;
-            } else if (rand > 0.9) {
+            } else if (randSale > 0.9) {
                 // GOOD DAY: 30.000 - 45.000
                 rawTarget = 30000 + Math.random() * 15000;
             } else {
-                // AVERAGE DAY: 22.000 - 30.000 (Targeting ~28k avg)
+                // AVERAGE DAY: 22.000 - 30.000
                 rawTarget = 22000 + Math.random() * 8000;
             }
 
@@ -69,10 +69,8 @@ const GhostSeeder: React.FC = () => {
             const shiftDateStr = d.toISOString().split('T')[0];
 
             while (currentSum < targetTotal) {
-                // Sales sizes: 1500, 2000, 2500 ... 5500
                 let amount = (Math.floor(Math.random() * 9) + 3) * 500; 
                 
-                // Cap last sale to match total exactly
                 if (currentSum + amount > targetTotal) {
                     amount = targetTotal - currentSum;
                 }
@@ -81,12 +79,11 @@ const GhostSeeder: React.FC = () => {
 
                 currentSum += amount;
 
-                // Create Sale Doc
                 const saleRef = doc(collection(db, "sales"));
                 createBatch.set(saleRef, {
                     id: saleRef.id,
                     date: shiftDateStr,
-                    timestamp: new Date(d.setHours(17 + Math.random() * 4, Math.random() * 59)).toISOString(),
+                    timestamp: new Date(d.setHours(10 + Math.random() * 7, Math.random() * 59)).toISOString(), // 10:00 - 17:00 spread
                     amount: amount,
                     project: PROJECTS[Math.floor(Math.random() * PROJECTS.length)],
                     userId: STAFF_ID,
@@ -94,15 +91,26 @@ const GhostSeeder: React.FC = () => {
                 });
             }
 
-            // --- SHIFT SUMMARY ---
-            const shiftRef = doc(collection(db, "shifts"));
-            const eveningHours = 3.5 + (Math.random() * 0.5); // 3.5 - 4.0h
+            // --- 3. CREATE SHIFT SUMMARY (Updated Logic) ---
+            const randTime = Math.random();
+            let totalHours = 8; 
 
+            // 10% chance of shorter shift (6 or 7 hours)
+            if (randTime < 0.1) {
+                totalHours = Math.random() > 0.5 ? 7 : 6;
+            }
+
+            // Fixed Evening Hours = 2
+            const eveningHours = 2;
+            // Day Hours = Remainder (6, 5, or 4)
+            const dayHours = totalHours - eveningHours;
+
+            const shiftRef = doc(collection(db, "shifts"));
             createBatch.set(shiftRef, {
                 id: shiftRef.id,
                 date: shiftDateStr,
-                dayHours: 0,
-                eveningHours: parseFloat(eveningHours.toFixed(2)),
+                dayHours: dayHours,
+                eveningHours: eveningHours,
                 totalSales: currentSum,
                 notes: "Gervigögn",
                 projectName: "Mixed",
@@ -123,7 +131,7 @@ const GhostSeeder: React.FC = () => {
 
   if (done) return (
     <div className="fixed bottom-4 right-4 bg-emerald-500 text-slate-900 p-4 rounded-xl font-black shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-10 z-50 cursor-pointer" onClick={() => setDone(false)}>
-        <Check size={20} /> Gögn uppfærð!
+        <Check size={20} /> Gögn uppfærð (8 tíma vaktir)!
     </div>
   );
 
