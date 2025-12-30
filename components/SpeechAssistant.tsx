@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Search, Mic2, ArrowRight, Copy, Check, ExternalLink, AlertCircle, BrainCircuit, Zap } from 'lucide-react';
+import { Sparkles, Search, Mic2, ArrowRight, Copy, Check, ExternalLink, AlertCircle, BrainCircuit, Zap, BookOpen } from 'lucide-react'; // <--- Added BookOpen
 import { getSpeechAssistantResponse, getSalesCoachAdvice, SpeechResult } from '../geminiService.ts'; 
 import { PROJECTS } from '../constants.ts';
 import { WageSummary } from '../types.ts';
