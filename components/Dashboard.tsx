@@ -21,7 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [aiData, setAiData] = useState<any>(null);
   const [isShiftActive, setIsShiftActive] = useState(false);
 
-  // Check if user is currently working to adjust the average calculation
+  // Check if user is currently working
   useEffect(() => {
     const active = !!localStorage.getItem('takk_shift_start');
     setIsShiftActive(active);
@@ -39,26 +39,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [shifts.length, summary.totalSales]);
 
   // --- Calculations ---
-  const formatISK = (val: number) => new Intl.NumberFormat('is-IS').format(Math.round(val));
+  const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
 
   const metrics = useMemo(() => {
-    // 1. Calculate Period Sales (Sales within the Pay Period 26th-25th)
-    // Note: 'summary.totalSales' usually comes from App.tsx filtered data, 
-    // but we ensure we are using the filtered period shifts/sales for consistency.
     const currentTotal = summary.totalSales;
-
-    // 2. Count Shifts (Completed + Active)
-    // If user is clocked in, we add 1 to the divisor so the average doesn't spike artificially during a shift.
     const completedShifts = periodShifts.length;
     const effectiveShiftCount = completedShifts + (isShiftActive ? 1 : 0);
-
-    // 3. Averages
     const avgPerShift = effectiveShiftCount > 0 ? currentTotal / effectiveShiftCount : 0;
-    
-    // 4. Projection
-    // Simple projection: (Total / ShiftsSoFar) * (TargetShifts or approx 20 a month)
-    // Or simpler: Daily Goal * 20
-    const projected = avgPerShift * 20; 
+    const projected = avgPerShift * 20; // Assume 20 shifts/month standard
 
     return {
         total: currentTotal,
@@ -69,8 +57,47 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [summary, periodShifts, isShiftActive, goals.monthly]);
 
+  // --- Chart Data Preparation ---
+  const chartData = useMemo(() => {
+    // 1. Group sales by date for the period
+    const salesByDate: Record<string, number> = {};
+    periodShifts.forEach(s => {
+        const d = s.date.split('T')[0];
+        salesByDate[d] = (salesByDate[d] || 0) + s.totalSales;
+    });
+
+    // 2. Sort dates chronologically
+    const sortedDates = Object.keys(salesByDate).sort();
+    
+    // 3. Create cumulative points
+    let cumulative = 0;
+    const points = sortedDates.map(date => {
+        cumulative += salesByDate[date];
+        return { date, value: cumulative, daily: salesByDate[date] };
+    });
+
+    // 4. Normalize for SVG (0-100 range)
+    if (points.length === 0) return { points: [], svgPath: "", fillPath: "", max: goals.monthly };
+
+    const maxVal = Math.max(goals.monthly, cumulative * 1.1); // Scale to goal or current total + 10%
+    const width = 100;
+    const height = 50;
+    
+    const svgPoints = points.map((p, i) => {
+        const x = (i / (points.length - 1 || 1)) * width;
+        const y = height - (p.value / maxVal) * height;
+        return `${x},${y}`;
+    });
+
+    // Smooth line curve
+    const svgPath = `M ${svgPoints.join(" L ")}`;
+    const fillPath = `${svgPath} L 100,50 L 0,50 Z`;
+
+    return { points, svgPath, fillPath, max: maxVal, bestDay: Math.max(...points.map(p => p.daily)) };
+  }, [periodShifts, goals.monthly]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       
       {/* HEADER WITH AI ADVICE */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -93,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* MAIN METRICS GRID */}
+      {/* METRICS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Card 1: Total Sales */}
@@ -110,15 +137,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <h3 className="text-4xl font-black text-white tracking-tight mb-1">{formatISK(metrics.total)}</h3>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Heildarsala</p>
-                
-                {/* Progress Bar */}
                 <div className="mt-6 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                     <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${metrics.progress}%` }} />
                 </div>
             </div>
         </div>
 
-        {/* Card 2: Average Per Shift (FIXED LOGIC) */}
+        {/* Card 2: Average Per Shift */}
         <div className="glass p-8 rounded-[40px] border-emerald-500/20 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-24 bg-emerald-500/5 blur-[60px] rounded-full group-hover:bg-emerald-500/10 transition-all" />
             <div className="relative z-10">
@@ -135,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-4xl font-black text-white tracking-tight mb-1">{formatISK(metrics.average)}</h3>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Meðalsala á vakt</p>
                 <p className="text-[10px] text-slate-600 mt-2 font-medium">
-                    Reiknað út frá {metrics.count} vöktum {isShiftActive ? "(þ.m.t. núverandi)" : ""}
+                    Reiknað út frá {metrics.count} vöktum
                 </p>
             </div>
         </div>
@@ -154,7 +179,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span className="text-lg font-bold text-slate-500 mb-1">vaktir</span>
                 </div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Mæting í mánuðinum</p>
-                
                 <div className="pt-4 border-t border-white/5">
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Spáð lokasölu</span>
@@ -163,10 +187,89 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
         </div>
-
       </div>
 
-      {/* MOTIVATIONAL QUOTE CARD */}
+      {/* --- NEW VISUAL INFOGRAPH: SALES TREND --- */}
+      <div className="glass p-8 rounded-[48px] border-white/10 relative overflow-hidden">
+         {/* Background Grid */}
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
+         
+         <div className="relative z-10 flex flex-col md:flex-row gap-8">
+            <div className="flex-1">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-black text-white uppercase italic tracking-tighter flex items-center gap-2">
+                        <TrendingUp className="text-indigo-400" size={20} /> Söluþróun mánaðarins
+                    </h3>
+                    <div className="text-right">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Besta vaktin</p>
+                        <p className="text-lg font-black text-emerald-400">{formatISK(chartData.bestDay)}</p>
+                    </div>
+                </div>
+
+                {/* THE CHART */}
+                <div className="h-48 w-full relative">
+                    {chartData.points.length > 1 ? (
+                        <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                            {/* Gradient Defs */}
+                            <defs>
+                                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
+                                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            
+                            {/* Target Line */}
+                            <line 
+                                x1="0" 
+                                y1={50 - (goals.monthly / chartData.max) * 50} 
+                                x2="100" 
+                                y2={50 - (goals.monthly / chartData.max) * 50} 
+                                stroke="#475569" 
+                                strokeWidth="0.5" 
+                                strokeDasharray="2" 
+                            />
+                            
+                            {/* Area Fill */}
+                            <path d={chartData.fillPath} fill="url(#chartGradient)" />
+                            
+                            {/* Line Stroke */}
+                            <path d={chartData.svgPath} fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                            
+                            {/* Data Points */}
+                            {chartData.points.map((p, i) => {
+                                const x = (i / (chartData.points.length - 1)) * 100;
+                                const y = 50 - (p.value / chartData.max) * 50;
+                                return (
+                                    <g key={i} className="group cursor-pointer">
+                                        <circle cx={x} cy={y} r="1.5" className="fill-indigo-400 group-hover:fill-white transition-all group-hover:r-2" />
+                                        {/* Tooltip on hover */}
+                                        <foreignObject x={x - 10} y={y - 15} width="40" height="20" className="opacity-0 group-hover:opacity-100 transition-opacity overflow-visible">
+                                            <div className="bg-slate-900 text-white text-[6px] font-bold px-2 py-1 rounded-md text-center shadow-lg border border-white/10 whitespace-nowrap">
+                                                {formatISK(p.value)}
+                                            </div>
+                                        </foreignObject>
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                            Vantar fleiri vaktir til að sýna graf
+                        </div>
+                    )}
+                </div>
+                
+                {/* Labels */}
+                <div className="flex justify-between mt-2 text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                    <span>26. {new Date().getMonth() === 0 ? 'Des' : 'í síðasta mán'}</span>
+                    <span>Í dag</span>
+                    <span>25. {new Date().toLocaleDateString('is-IS', {month: 'short'})}</span>
+                </div>
+            </div>
+         </div>
+      </div>
+
+      {/* MOTIVATIONAL QUOTE */}
       {aiData?.motivationalQuote && (
         <div className="glass p-8 rounded-[32px] border-white/5 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 text-center">
             <p className="text-lg font-black text-white italic tracking-tight">"{aiData.motivationalQuote}"</p>
