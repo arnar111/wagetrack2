@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Plus, PieChart, Mic2, Menu } from 'lucide-react';
+import { LayoutDashboard, Plus, Mic2, Menu, Trophy } from 'lucide-react';
 
 interface MobileDockProps {
   activeTab: string;
@@ -12,7 +12,7 @@ const MobileDock: React.FC<MobileDockProps> = ({ activeTab, onTabChange, onMenuC
     <div className="md:hidden fixed bottom-6 left-4 right-4 z-[90] pointer-events-none">
       <div className="glass bg-[#0f172a]/95 border border-white/10 rounded-[32px] p-2 shadow-2xl backdrop-blur-xl flex justify-between items-center px-6 pointer-events-auto h-20">
         
-        {/* Dashboard */}
+        {/* Dashboard (Monthly/Home) */}
         <button
           onClick={() => onTabChange('dashboard')}
           className={`p-3 rounded-2xl transition-all ${activeTab === 'dashboard' ? 'text-white bg-white/10' : 'text-slate-500'}`}
@@ -20,12 +20,12 @@ const MobileDock: React.FC<MobileDockProps> = ({ activeTab, onTabChange, onMenuC
           <LayoutDashboard size={26} />
         </button>
 
-        {/* MorriAI */}
+        {/* Daily Stats (Árangur) */}
         <button
-          onClick={() => onTabChange('speech')}
-          className={`p-3 rounded-2xl transition-all ${activeTab === 'speech' ? 'text-white bg-white/10' : 'text-slate-500'}`}
+          onClick={() => onTabChange('daily')}
+          className={`p-3 rounded-2xl transition-all ${activeTab === 'daily' ? 'text-amber-400 bg-amber-500/10' : 'text-slate-500'}`}
         >
-          <Mic2 size={26} />
+          <Trophy size={26} />
         </button>
 
         {/* GIANT ADD BUTTON */}
@@ -36,12 +36,12 @@ const MobileDock: React.FC<MobileDockProps> = ({ activeTab, onTabChange, onMenuC
           <Plus size={32} className="text-white" />
         </button>
 
-        {/* Insights */}
+        {/* MorriAI */}
         <button
-          onClick={() => onTabChange('insights')}
-          className={`p-3 rounded-2xl transition-all ${activeTab === 'insights' ? 'text-white bg-white/10' : 'text-slate-500'}`}
+          onClick={() => onTabChange('speech')}
+          className={`p-3 rounded-2xl transition-all ${activeTab === 'speech' ? 'text-white bg-white/10' : 'text-slate-500'}`}
         >
-          <PieChart size={26} />
+          <Mic2 size={26} />
         </button>
 
         {/* Menu */}
