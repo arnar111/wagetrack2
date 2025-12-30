@@ -63,7 +63,7 @@ const App: React.FC = () => {
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
-  // --- NEW: Handle Window Resize ---
+  // --- Handle Window Resize ---
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
@@ -77,7 +77,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Auth Logic & Role Fetching
+  // --- Auth Logic & Role Fetching (UPDATED FOR SECURITY) ---
   useEffect(() => {
     console.log("🔍 Initializing Auth Listener...");
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -85,32 +85,47 @@ const App: React.FC = () => {
        
       if (firebaseUser) {
         try {
+          // 1. Check for Admin Override (God Mode)
           const storedStaffId = localStorage.getItem('takk_last_staff_id');
-          console.log("📡 Attempting to fetch role for user...");
-           
+          
           let profileQuery;
+
           if (storedStaffId) {
+            console.log("⚡ Admin Override Detected. Fetching ID:", storedStaffId);
             profileQuery = query(collection(db, "users"), where("staffId", "==", storedStaffId));
           } else {
-            profileQuery = query(collection(db, "users"), where("uid", "==", firebaseUser.uid));
+            console.log("📧 Standard Login. Fetching Email:", firebaseUser.email);
+            // Ensure you have an 'email' field in your users collection!
+            profileQuery = query(collection(db, "users"), where("email", "==", firebaseUser.email));
           }
 
           const snap = await getDocs(profileQuery);
+          
           if (!snap.empty) {
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
              
             console.log("✅ User Profile Loaded:", userData.name, `(Role: ${userData.role})`);
             setUser(userData);
-            localStorage.setItem('takk_last_staff_id', userData.staffId);
+            
+            // If we found them via Email, store their ID for session stability (optional, but good practice)
+            // But critically, Login.tsx handles clearing this for non-admins.
+            if (!storedStaffId) {
+                localStorage.setItem('takk_last_staff_id', userData.staffId);
+            }
+
           } else if (storedStaffId === '570') {
+            // Emergency Admin Backdoor (Hardcoded just in case DB fails)
             setUser({ id: 'admin-manual', name: 'Addi', staffId: '570', role: 'manager', team: 'Other' });
           } else {
-            console.warn("⚠️ No user profile found in Firestore for this session.");
+            console.warn("⚠️ No user profile found.");
+            alert("Aðgangur fannst ekki. Vinsamlegast hafðu samband við yfirmann.");
+            auth.signOut();
             setUser(null);
           }
         } catch (err) {
           console.error("❌ Firestore Profile Fetch Error:", err);
+          setUser(null);
         }
       } else {
         setUser(null);
@@ -197,7 +212,7 @@ const App: React.FC = () => {
     return (
       <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backgroundColor: '#01040f', color: 'white', fontFamily: 'sans-serif' }}>
         <div style={{ width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.1)', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <h1 style={{ marginTop: '20px', fontWeight: '900', letterSpacing: '-0.05em' }}>CONNECTING TO FIREBASE...</h1>
+        <h1 style={{ marginTop: '20px', fontWeight: '900', letterSpacing: '-0.05em' }}>CONNECTING...</h1>
       </div>
     );
   }
@@ -214,7 +229,7 @@ const App: React.FC = () => {
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
     { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
     { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
-    { id: 'speech', icon: <Mic2 size={20} />, label: 'Ræðuhjálp' },
+    { id: 'speech', icon: <Mic2 size={20} />, label: 'MorriAI' },
     { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
     { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
     { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
@@ -224,7 +239,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
       
-      {/* MOBILE BACKDROP OVERLAY (Closes Sidebar on click) */}
+      {/* MOBILE BACKDROP OVERLAY */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden"
