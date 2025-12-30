@@ -4,18 +4,18 @@ export interface User {
   staffId: string;
   role: 'agent' | 'manager';
   team: 'Hringurinn' | 'Verið' | 'Other';
-  uid?: string;   // Links Firestore User Profile to Firebase Auth UID
-  email?: string; // Added to fix build error
+  uid?: string;
+  email?: string;
 }
 
 export interface Shift {
   id: string;
   date: string;
-  dayHours: number;     // 08:00 - 17:00
-  eveningHours: number; // 17:00 - 00:00
+  dayHours: number;
+  eveningHours: number;
   totalSales: number;
   notes: string;
-  managerNotes?: string; // Team-wide observations
+  managerNotes?: string;
   projectName: string;
   userId: string;
 }
@@ -23,10 +23,11 @@ export interface Shift {
 export interface Sale {
   id: string;
   date: string;
-  timestamp: string; // ISO string with time
+  timestamp: string;
   amount: number;
   project: string;
   userId: string;
+  saleType?: 'new' | 'upgrade'; // <--- THIS WAS MISSING
 }
 
 export interface WageSummary {
@@ -40,13 +41,13 @@ export interface WageSummary {
 }
 
 export interface WageSettings {
-  dayRate: number;      // 2724.88
-  eveningRate: number;  // 3768.47
+  dayRate: number;
+  eveningRate: number;
   pensionRate: number;
   unionRate: number;
   taxRate: number;
   personalAllowance: number;
-  allowanceUsage: number; // 0 to 1 (0% to 100%)
+  allowanceUsage: number;
 }
 
 export interface Goals {
