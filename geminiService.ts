@@ -17,7 +17,7 @@ const getApiKey = (): string => {
   return "";
 };
 
-const getModel = (modelName: string = "gemini-3-flash-preview") => {
+const getModel = (modelName: string = "gemini-1.5-flash") => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn("⚠️ Gemini API Key is missing.");
@@ -36,9 +36,34 @@ export interface SpeechResult {
   sources: { title: string; uri: string }[];
 }
 
-// --- NEW FUNCTION FOR MORRI AI ---
+// --- RESTORED FUNCTION ---
+export const chatWithAddi = async (history: { role: string, parts: { text: string }[] }[]) => {
+  const model = getModel("gemini-1.5-flash");
+  if (!model) return "Bíður eftir lykli...";
+
+  try {
+    // Separate the last message (new input) from the history context
+    const lastMsg = history[history.length - 1];
+    const previousHistory = history.slice(0, -1).map(h => ({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: h.parts
+    }));
+
+    const chat = model.startChat({
+      history: previousHistory,
+    });
+
+    const result = await chat.sendMessage(lastMsg.parts[0].text);
+    return result.response.text();
+  } catch (e) {
+    console.error(e);
+    return "Tengingarvilla hjá Adda. Reyndu aftur síðar.";
+  }
+};
+
+// --- SALES COACH (MORRI AI) ---
 export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> => {
-  const model = getModel("gemini-3-flash-preview");
+  const model = getModel("gemini-1.5-flash");
   if (!model) return "Bíður eftir lykli...";
 
   try {
@@ -61,7 +86,7 @@ export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> =>
 };
 
 export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Promise<string> => {
-  const model = getModel("gemini-3-flash-preview");
+  const model = getModel("gemini-1.5-flash");
   if (!model) return "Bíður eftir lykli...";
   
   try {
@@ -74,7 +99,7 @@ export const getWageInsights = async (shifts: Shift[], summary: WageSummary): Pr
 };
 
 export const getManagerCommandAnalysis = async (charityData: any) => {
-  const model = getModel("gemini-3-pro-preview");
+  const model = getModel("gemini-1.5-pro");
   if (!model) return { strategicAdvice: "Bíður eftir lykli...", topProject: "Óvíst" };
 
   try {
@@ -96,7 +121,7 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
 };
 
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
-  const model = getModel("gemini-3-flash-preview");
+  const model = getModel("gemini-1.5-flash");
   const fallback = { text: "AI lykill vantar.", sources: [] };
   if (!model) return fallback;
 
@@ -125,7 +150,7 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
 };
 
 export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, summary: WageSummary) => {
-  const model = getModel("gemini-3-flash-preview");
+  const model = getModel("gemini-1.5-flash");
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: summary.totalSales };
 
   try {
@@ -145,7 +170,7 @@ export const getSmartDashboardAnalysis = async (shifts: Shift[], goals: Goals, s
 };
 
 export const getAIProjectComparison = async (sales: Sale[]): Promise<string> => {
-  const model = getModel("gemini-3-flash-preview");
+  const model = getModel("gemini-1.5-flash");
   if (!model) return "Bíður eftir lykli...";
 
   const summary: Record<string, { total: number, count: number }> = {};
