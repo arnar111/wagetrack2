@@ -27,7 +27,7 @@ export interface Sale {
   amount: number;
   project: string;
   userId: string;
-  saleType?: 'new' | 'upgrade'; // <--- THIS WAS MISSING
+  saleType?: 'new' | 'upgrade'; 
 }
 
 export interface WageSummary {
@@ -53,4 +53,13 @@ export interface WageSettings {
 export interface Goals {
   daily: number;
   monthly: number;
+}
+
+// --- GAMIFICATION TYPES ---
+export interface Level {
+  id: number;
+  min: number;
+  max: number;
+  title: string;
+  color: string;
 }
