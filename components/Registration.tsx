@@ -207,7 +207,6 @@ const Registration: React.FC<RegistrationProps> = ({
   // Check if Bounty Complete
   const isBountyComplete = useMemo(() => {
       if (!dailyBounty) return false;
-      // Simple logic based on string text for this version
       if (dailyBounty.task.includes("30.000") && totalSalesToday >= 30000) return true;
       if (dailyBounty.task.includes("Nýir") && newSalesCount >= 3) return true;
       if (dailyBounty.task.includes("5.000") && todaySales.some(s => s.amount >= 5000)) return true;
@@ -323,12 +322,6 @@ const Registration: React.FC<RegistrationProps> = ({
   const remainingAmount = Math.max(0, goals.daily - totalSalesToday);
   const requiredSpeed = remainingAmount / Math.max(0.5, hoursRemaining); 
 
-  const averageShiftSales = avgSalesPerHour * avgShiftLength; 
-  const performanceDiff = totalSalesToday - averageShiftSales;
-  const performancePercent = averageShiftSales > 0 ? (performanceDiff / averageShiftSales) * 100 : 0;
-  const isPerformingWell = performanceDiff >= 0;
-
-  // --- MOBILE UI TOGGLE ---
   const isMobile = window.innerWidth < 1024;
 
   if (isMobile) {
@@ -594,7 +587,7 @@ const Registration: React.FC<RegistrationProps> = ({
          </button>
       </div>
 
-      {/* METRICS ROW */}
+      {/* METRICS ROW (Desktop) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div className="glass p-5 rounded-[32px] border-white/10 relative overflow-hidden">
             <div className="flex justify-between items-start mb-1"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tímar í dag</p><div className={`p-1 rounded-full ${clockInTime ? 'bg-emerald-500/20 text-emerald-400 animate-pulse' : 'bg-white/10 text-slate-500'}`}><Clock size={12} /></div></div>
@@ -689,7 +682,7 @@ const Registration: React.FC<RegistrationProps> = ({
           </div>
         </div>
 
-        {/* Right Column - GAMIFICATION STACK */}
+        {/* Right Column - GAMIFICATION STACK (Desktop) */}
         <div className="flex flex-col gap-6 lg:col-span-1 h-full">
             
             {/* BOUNTY CARD */}
@@ -760,35 +753,6 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
                 <div className="p-2 rounded-xl bg-white/5 text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center">
                     Vs Meðaltal
-                </div>
-            </div>
-
-            {/* STREAK CARD */}
-            <div className={`glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-white/5 to-transparent flex-grow ${currentStreak > 3 ? 'border-amber-500/30' : ''}`}>
-                <div className="flex justify-between items-start mb-4"><div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400"><Flame size={24} className={currentStreak > 1 ? "animate-pulse" : ""} /></div><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Streak</span></div>
-                <div>
-                    <h3 className="text-5xl font-black text-white tracking-tighter mb-1">{currentStreak}</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-tight mb-6">Vaktir í röð <br/><span className="text-amber-400">Haltu áfram!</span></p>
-                    <div className="flex gap-2">{[...Array(5)].map((_, i) => (<div key={i} className={`h-2 flex-1 rounded-full transition-all ${i < currentStreak ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-white/10'}`} />))}</div>
-                </div>
-            </div>
-
-            {/* PERFORMANCE CARD */}
-            <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col justify-between flex-grow relative overflow-hidden">
-                <div className="flex justify-between items-start"><div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><Trophy size={24} /></div><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Árangur</span></div>
-                <div className="mt-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        {isPerformingWell ? (<ArrowUpRight size={28} className="text-emerald-400" />) : (<ArrowDownRight size={28} className="text-rose-400" />)}
-                        <h3 className={`text-4xl font-black tracking-tighter ${isPerformingWell ? 'text-emerald-400' : 'text-rose-400'}`}>{performanceDiff > 0 ? '+' : ''}{Math.round(performancePercent)}%</h3>
-                    </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Miðað við meðaltal</p>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase"><span>Þú</span><span>Meðaltal</span></div>
-                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden flex">
-                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, (totalSalesToday / (averageShiftSales * 1.5)) * 100)}%` }} />
-                            <div className="w-[2px] h-full bg-white/20 z-10" /> 
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
