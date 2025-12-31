@@ -41,7 +41,7 @@ import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
-import DailyStats from './components/DailyStats.tsx'; // <--- IMPORT NEW COMPONENT
+import DailyStats from './components/DailyStats.tsx'; 
 import GhostSeeder from './components/GhostSeeder.tsx'; 
 
 const App: React.FC = () => {
@@ -62,6 +62,20 @@ const App: React.FC = () => {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  // --- GAMIFICATION STATE ---
+  const [dailyBounty, setDailyBounty] = useState<{task: string, reward: string} | null>(null);
+
+  useEffect(() => {
+    // Generate a random bounty for the session
+    const bounties = [
+        { task: "Náðu 3 'Nýir' sölum í röð", reward: "🔥 Hot Streak Badge" },
+        { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "🏆 High Roller Status" },
+        { task: "Fáðu eina sölu yfir 5.000 kr", reward: "💎 Big Fish Badge" },
+        { task: "Náðu markmiði fyrir kl 15:00", reward: "⚡ Speed Demon" }
+    ];
+    setDailyBounty(bounties[Math.floor(Math.random() * bounties.length)]);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -144,7 +158,7 @@ const App: React.FC = () => {
 
     let unsubAll = () => {};
     if (user.role === 'manager') {
-        // Manager logic simplified for brevity in this response
+       // Manager Logic
     }
 
     return () => { unsubShifts(); unsubSales(); unsubConfig(); unsubAll(); };
@@ -253,11 +267,23 @@ const App: React.FC = () => {
               <Dashboard summary={summary} shifts={shifts} periodShifts={periodData.filteredShifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} sales={sales} staffId={user.staffId} />
             )}
             
-            {/* NEW MOBILE DAILY STATS TAB */}
             {activeTab === 'daily' && <DailyStats sales={sales} goals={goals} />}
 
             {activeTab === 'register' && (
-              <Registration onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))} onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })} currentSales={sales} shifts={shifts} editingShift={editingShift} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} userRole={user.role} userId={user.staffId} />
+              <Registration 
+                onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} 
+                onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} 
+                onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))}
+                onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })} 
+                currentSales={sales} 
+                shifts={shifts} 
+                editingShift={editingShift} 
+                goals={goals} 
+                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} 
+                userRole={user.role} 
+                userId={user.staffId} 
+                dailyBounty={dailyBounty} // Pass bounty here
+              />
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
@@ -290,7 +316,6 @@ const App: React.FC = () => {
         <MobileDock activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
       </div>
       
-      {/* HIDDEN ON MOBILE CHATBOT */}
       <div className="hidden md:block">
         <Chatbot />
       </div>
