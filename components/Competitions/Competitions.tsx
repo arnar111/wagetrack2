@@ -89,18 +89,26 @@ const Competitions: React.FC<CompetitionsProps> = ({ sales, shifts, user }) => {
     }, [sales, shifts]);
 
     // --- STORE LOGIC ---
-    // 500 ISK = 1 Coin based on sales + Badge Rewards
+    // 500 ISK = 1 Coin based on sales + Badge Rewards + Wheel Rewards
     const [spentCoins, setSpentCoins] = useState(0);
+    const [wheelCoins, setWheelCoins] = useState(0);
     const [inventory, setInventory] = useState<string[]>([]);
 
     const totalLifeTimeSales = React.useMemo(() => shifts.reduce((acc, s) => acc + s.totalSales, 0), [shifts]);
     const salesCoins = Math.floor(totalLifeTimeSales / 500);
-    const totalCoinsEarned = salesCoins + badgeCoins;
+    const totalCoinsEarned = salesCoins + badgeCoins + wheelCoins;
     const currentCoins = Math.max(0, totalCoinsEarned - spentCoins);
 
     const handleBuy = (item: StoreItem) => {
         setSpentCoins(prev => prev + item.price);
-        setInventory(prev => [...prev, item.id]);
+        // Only add to inventory if NOT consumable (wheel is consumable)
+        if (item.id !== 'wheel') {
+            setInventory(prev => [...prev, item.id]);
+        }
+    };
+
+    const handleWheelWin = (amount: number) => {
+        setWheelCoins(prev => prev + amount);
     };
 
     // --- DUEL LOGIC ---
@@ -179,7 +187,7 @@ const Competitions: React.FC<CompetitionsProps> = ({ sales, shifts, user }) => {
                         onChallenge={setDuelOpponent}
                     />
                 )}
-                {subTab === 'store' && <StoreView coins={currentCoins} onBuy={handleBuy} inventory={inventory} />}
+                {subTab === 'store' && <StoreView coins={currentCoins} onBuy={handleBuy} inventory={inventory} onWheelWin={handleWheelWin} />}
             </div>
         </div>
     );

@@ -2,18 +2,45 @@ import React, { useState } from 'react';
 import { ShoppingBag, Coins, Check, Lock } from 'lucide-react';
 import { STORE_ITEMS } from '../../constants';
 import { User, StoreItem } from '../../types';
+import LuckyWheelModal from './LuckyWheelModal.tsx';
 
 interface StoreViewProps {
     coins: number;
     onBuy: (item: StoreItem) => void;
     inventory: string[]; // List of item IDs owned
+    onWheelWin: (amount: number) => void;
 }
 
-const StoreView: React.FC<StoreViewProps> = ({ coins, onBuy, inventory }) => {
+const StoreView: React.FC<StoreViewProps> = ({ coins, onBuy, inventory, onWheelWin }) => {
     const [purchasing, setPurchasing] = useState<string | null>(null);
+    const [showWheel, setShowWheel] = useState(false);
 
     const handleBuy = (item: StoreItem) => {
         if (coins < item.price) return;
+
+        if (item.id === 'wheel') {
+            // Deduct coins immediately for wheel (Store parent handles this logic? No, onBuy normally handles it)
+            // Actually, we need to trigger the deduction and THEN show modal?
+            // Or show modal, and if they spin, we deduct?
+            // Simpler: Buy it, which deducts coins (via onBuy), then show modal.
+            // But onBuy adds to inventory... which we don't want for consumables.
+            // Refactor: onBuy should ideally handle "type" or we just handle deduction manually?
+            // Let's assume onBuy can handle it or we pass a special flag.
+            // For now: We'll modify parent to NOT add 'wheel' to inventory if we don't want checkmarks.
+            // But let's keep it simple: We call a separate `onPurchaseWheel` or just handle it locally.
+            // Let's call onBuy to deduct coins, but we need to ensure it doesn't just "finish".
+            // Actually, let's open modal first. The modal "spin" cost is the price.
+            setPurchasing(item.id);
+            setTimeout(() => {
+                setPurchasing(null);
+                setShowWheel(true);
+                // We rely on parent to deduct price? Or we pass "onBuy" to modal?
+                // Let's trigger onBuy(item) to deduct cost.
+                onBuy(item);
+            }, 500);
+            return;
+        }
+
         setPurchasing(item.id);
         setTimeout(() => {
             onBuy(item);
@@ -22,7 +49,18 @@ const StoreView: React.FC<StoreViewProps> = ({ coins, onBuy, inventory }) => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+
+            {showWheel && (
+                <LuckyWheelModal
+                    onClose={() => setShowWheel(false)}
+                    onWin={(amount) => {
+                        // Winner logic
+                        onWheelWin(amount);
+                        // Don't close immediately? The modal handles its own result state.
+                    }}
+                />
+            )}
 
             {/* Balance Card */}
             <div className="glass p-8 rounded-[32px] border-amber-500/20 relative overflow-hidden text-center">
@@ -40,7 +78,7 @@ const StoreView: React.FC<StoreViewProps> = ({ coins, onBuy, inventory }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {STORE_ITEMS.map((item) => {
                     const canAfford = coins >= item.price;
-                    const isOwned = inventory.includes(item.id);
+                    const isOwned = inventory.includes(item.id) && item.id !== 'wheel'; // Wheel is consumable
                     const isBuying = purchasing === item.id;
 
                     return (
@@ -59,10 +97,10 @@ const StoreView: React.FC<StoreViewProps> = ({ coins, onBuy, inventory }) => {
                                 disabled={!canAfford || isOwned || isBuying}
                                 onClick={() => handleBuy(item)}
                                 className={`w-full py-3 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 ${isOwned
-                                        ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
-                                        : canAfford
-                                            ? 'bg-white text-slate-900 shadow-lg hover:shadow-xl'
-                                            : 'bg-white/5 text-slate-600 cursor-not-allowed'
+                                    ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
+                                    : canAfford
+                                        ? 'bg-white text-slate-900 shadow-lg hover:shadow-xl'
+                                        : 'bg-white/5 text-slate-600 cursor-not-allowed'
                                     }`}
                             >
                                 {isBuying ? (

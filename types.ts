@@ -17,7 +17,7 @@ export interface StoreItem {
   description: string;
   price: number;
   icon: string; // Using lucide icon name or emoji for now
-  effect?: 'sound' | 'theme' | 'badge' | 'silence';
+  effect?: string;
 }
 
 export interface Shift {
