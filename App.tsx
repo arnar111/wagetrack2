@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LayoutDashboard, 
-  History, 
-  Settings, 
-  Mic2, 
-  FileText, 
-  Menu, 
-  LogOut, 
-  Sparkle, 
-  PieChart, 
-  ShieldCheck, 
+import {
+  LayoutDashboard,
+  History,
+  Settings,
+  Mic2,
+  FileText,
+  Menu,
+  LogOut,
+  Sparkle,
+  PieChart,
+  ShieldCheck,
   BarChart4
 } from 'lucide-react';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  doc, 
-  setDoc, 
-  addDoc, 
-  deleteDoc, 
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  setDoc,
+  addDoc,
+  deleteDoc,
   orderBy,
   getDocs
 } from 'firebase/firestore';
@@ -41,12 +41,12 @@ import Admin from './components/Admin.tsx';
 import Chatbot from './components/Chatbot.tsx';
 import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
-import DailyStats from './components/DailyStats.tsx'; 
-import GhostSeeder from './components/GhostSeeder.tsx'; 
+import DailyStats from './components/DailyStats.tsx';
+import GhostSeeder from './components/GhostSeeder.tsx';
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
-   
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -57,25 +57,55 @@ const App: React.FC = () => {
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
-  
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-
   // --- GAMIFICATION STATE ---
-  const [dailyBounty, setDailyBounty] = useState<{task: string, reward: string} | null>(null);
+  const [dailyBounty, setDailyBounty] = useState<{ task: string, reward: string } | null>(null);
+
+  // --- GLOBAL SHIFT STATE ---
+  const [clockInTime, setClockInTime] = useState<Date | null>(null);
+  const [isShiftActive, setIsShiftActive] = useState(false);
 
   useEffect(() => {
     // Generate a random bounty for the session
     const bounties = [
-        { task: "Náðu 3 'Nýir' sölum í röð", reward: "🔥 Hot Streak Badge" },
-        { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "🏆 High Roller Status" },
-        { task: "Fáðu eina sölu yfir 5.000 kr", reward: "💎 Big Fish Badge" },
-        { task: "Náðu markmiði fyrir kl 15:00", reward: "⚡ Speed Demon" }
+      { task: "Náðu 3 'Nýir' sölum í röð", reward: "🔥 Hot Streak Badge" },
+      { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "🏆 High Roller Status" },
+      { task: "Fáðu eina sölu yfir 5.000 kr", reward: "💎 Big Fish Badge" },
+      { task: "Náðu markmiði fyrir kl 15:00", reward: "⚡ Speed Demon" }
     ];
     setDailyBounty(bounties[Math.floor(Math.random() * bounties.length)]);
+
+    // Check for active shift
+    const storedStart = localStorage.getItem('takk_shift_start');
+    if (storedStart) {
+      setClockInTime(new Date(storedStart));
+      setIsShiftActive(true);
+    }
   }, []);
+
+  const handleClockIn = (goal: number) => {
+    const start = new Date(); // In real app use getRoundedTime from utils if needed consistency
+    setClockInTime(start);
+    setIsShiftActive(true);
+    localStorage.setItem('takk_shift_start', start.toISOString());
+    // Update goal if provided
+    if (goal && user) {
+      setDoc(doc(db, "user_configs", user.staffId), { goals: { ...goals, daily: goal } }, { merge: true });
+      setGoals(prev => ({ ...prev, daily: goal }));
+    }
+  };
+
+  const handleClockOut = async (shiftData: any) => {
+    if (!user) return;
+    await addDoc(collection(db, "shifts"), { ...shiftData, userId: user.staffId });
+    setClockInTime(null);
+    setIsShiftActive(false);
+    localStorage.removeItem('takk_shift_start');
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -99,9 +129,9 @@ const App: React.FC = () => {
           const adminEmail = 'arnar.kjartansson@takk.co';
 
           if (firebaseUser.email?.toLowerCase() === adminEmail && !storedStaffId) {
-             console.log("🛡️ Admin detected. Waiting for God Mode selection...");
-             setLoading(false); 
-             return; 
+            console.log("🛡️ Admin detected. Waiting for God Mode selection...");
+            setLoading(false);
+            return;
           }
 
           let profileQuery;
@@ -112,7 +142,7 @@ const App: React.FC = () => {
           }
 
           const snap = await getDocs(profileQuery);
-          
+
           if (!snap.empty) {
             const rawData = snap.docs[0].data() as any;
             const userData = { ...rawData, id: snap.docs[0].id } as User;
@@ -140,13 +170,13 @@ const App: React.FC = () => {
   // Data Listeners
   useEffect(() => {
     if (!user) return;
-     
+
     const shiftsQ = query(collection(db, "shifts"), where("userId", "==", user.staffId), orderBy("date", "desc"));
     const unsubShifts = onSnapshot(shiftsQ, (snap) => setShifts(snap.docs.map(d => ({ ...d.data(), id: d.id } as Shift))));
-     
+
     const salesQ = query(collection(db, "sales"), where("userId", "==", user.staffId), orderBy("timestamp", "desc"));
     const unsubSales = onSnapshot(salesQ, (snap) => setSales(snap.docs.map(d => ({ ...d.data(), id: d.id } as Sale))));
-     
+
     const configRef = doc(db, "user_configs", user.staffId);
     const unsubConfig = onSnapshot(configRef, (d) => {
       if (d.exists()) {
@@ -156,9 +186,9 @@ const App: React.FC = () => {
       }
     });
 
-    let unsubAll = () => {};
+    let unsubAll = () => { };
     if (user.role === 'manager') {
-       // Manager Logic
+      // Manager Logic
     }
 
     return () => { unsubShifts(); unsubSales(); unsubConfig(); unsubAll(); };
@@ -172,25 +202,25 @@ const App: React.FC = () => {
     let end = new Date(now);
 
     if (currentDay >= 26) {
-        start.setDate(26);
-        end.setMonth(end.getMonth() + 1);
-        end.setDate(25);
+      start.setDate(26);
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(25);
     } else {
-        start.setMonth(start.getMonth() - 1);
-        start.setDate(26);
-        end.setDate(25);
+      start.setMonth(start.getMonth() - 1);
+      start.setDate(26);
+      end.setDate(25);
     }
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
     const filterByDate = (item: any) => {
-        const itemDate = new Date(item.date || item.timestamp); 
-        return itemDate >= start && itemDate <= end;
+      const itemDate = new Date(item.date || item.timestamp);
+      return itemDate >= start && itemDate <= end;
     };
 
     return {
-        filteredShifts: shifts.filter(filterByDate),
-        filteredSales: sales.filter(filterByDate)
+      filteredShifts: shifts.filter(filterByDate),
+      filteredSales: sales.filter(filterByDate)
     };
   }, [shifts, sales]);
 
@@ -221,7 +251,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
-      
+
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
       <aside className={`fixed inset-y-0 left-0 z-[100] glass border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} w-64 lg:relative lg:translate-x-0`}>
@@ -231,7 +261,7 @@ const App: React.FC = () => {
         </div>
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if(window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? 'gradient-bg text-white shadow-lg' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+            <button key={item.id} onClick={() => { setActiveTab(item.id); if (window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? 'gradient-bg text-white shadow-lg' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
               {item.icon}
               <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
             </button>
@@ -239,8 +269,8 @@ const App: React.FC = () => {
         </nav>
         <div className="p-4 border-t border-white/5 space-y-2">
           <div className="px-4 py-2 bg-indigo-500/10 rounded-xl mb-2">
-             <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400">{user.role}</p>
-             <p className="text-[10px] font-bold text-white truncate">{user.name}</p>
+            <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400">{user.role}</p>
+            <p className="text-[10px] font-bold text-white truncate">{user.name}</p>
           </div>
           <button onClick={() => { auth.signOut(); localStorage.removeItem('takk_last_staff_id'); }} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-rose-400 transition-all">
             <LogOut size={20} />
@@ -256,7 +286,7 @@ const App: React.FC = () => {
             <h2 className="text-lg md:text-xl font-black text-white tracking-tight uppercase italic truncate">{navItems.find(n => n.id === activeTab)?.label || (activeTab === 'daily' ? 'Árangur' : '')}</h2>
           </div>
           <div className="flex items-center gap-3">
-             <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20 gradient-bg`}>{user.name.charAt(0)}</div>
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/20 gradient-bg`}>{user.name.charAt(0)}</div>
           </div>
         </header>
 
@@ -264,24 +294,43 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto space-y-8">
             {activeTab === 'manager_dash' && isManager && <ManagerDashboard allShifts={allShifts} allSales={allSales} allUsers={allUsers} currentUser={user} personalSummary={summary} />}
             {(activeTab === 'dashboard' || (!isManager && activeTab === 'manager_dash')) && (
-              <Dashboard summary={summary} shifts={shifts} periodShifts={periodData.filteredShifts} aiInsights={aiInsights} onAddClick={() => setActiveTab('register')} goals={goals} onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} sales={sales} staffId={user.staffId} />
+              <Dashboard
+                isShiftActive={isShiftActive}
+                clockInTime={clockInTime}
+                onClockIn={handleClockIn}
+                onClockOut={handleClockOut}
+                summary={summary}
+                shifts={shifts}
+                periodShifts={periodData.filteredShifts}
+                aiInsights={aiInsights}
+                onAddClick={() => setActiveTab('register')}
+                goals={goals}
+                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })}
+                sales={sales}
+                staffId={user.staffId}
+
+              />
             )}
-            
+
             {activeTab === 'daily' && <DailyStats sales={sales} goals={goals} />}
 
             {activeTab === 'register' && (
-              <Registration 
-                onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} 
-                onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })} 
+              <Registration
+                isShiftActive={isShiftActive}
+                clockInTime={clockInTime}
+                onClockIn={handleClockIn}
+                onClockOut={handleClockOut}
+                onSaveShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })}
+                onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })}
                 onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))}
-                onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })} 
-                currentSales={sales} 
-                shifts={shifts} 
-                editingShift={editingShift} 
-                goals={goals} 
-                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })} 
-                userRole={user.role} 
-                userId={user.staffId} 
+                onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })}
+                currentSales={sales}
+                shifts={shifts}
+                editingShift={editingShift}
+                goals={goals}
+                onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })}
+                userRole={user.role}
+                userId={user.staffId}
                 dailyBounty={dailyBounty} // Pass bounty here
               />
             )}
@@ -298,16 +347,16 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Dagvinna</label>
-                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({...wageSettings, dayRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
+                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({ ...wageSettings, dayRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Eftirvinna</label>
-                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({...wageSettings, eveningRate: parseFloat(e.target.value)})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
+                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({ ...wageSettings, eveningRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
                   </div>
                 </div>
               </div>
             )}
-            
+
             {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'daily' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
               <div className="text-center py-20 text-slate-500"><button onClick={() => setActiveTab('dashboard')} className="px-4 py-2 bg-indigo-600 rounded-lg text-white font-bold">Fara á mælaborð</button></div>
             )}
@@ -315,12 +364,12 @@ const App: React.FC = () => {
         </main>
         <MobileDock activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />
       </div>
-      
+
       <div className="hidden md:block">
         <Chatbot />
       </div>
-      
-      <GhostSeeder /> 
+
+      <GhostSeeder />
     </div>
   );
 };
