@@ -10,7 +10,8 @@ import {
   Sparkle,
   PieChart,
   ShieldCheck,
-  BarChart4
+  BarChart4,
+  Trophy
 } from 'lucide-react';
 import {
   collection,
@@ -43,6 +44,7 @@ import MobileDock from './components/MobileDock.tsx';
 import ManagerDashboard from './components/ManagerDashboard.tsx';
 import DailyStats from './components/DailyStats.tsx';
 import GhostSeeder from './components/GhostSeeder.tsx';
+import Competitions from './components/Competitions/Competitions.tsx';
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
@@ -63,21 +65,24 @@ const App: React.FC = () => {
   const [logoError, setLogoError] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   // --- GAMIFICATION STATE ---
-  const [dailyBounty, setDailyBounty] = useState<{ task: string, reward: string } | null>(null);
+  const [dailyBounties, setDailyBounties] = useState<{ task: string, reward: string }[]>([]);
 
   // --- GLOBAL SHIFT STATE ---
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
   const [isShiftActive, setIsShiftActive] = useState(false);
 
   useEffect(() => {
-    // Generate a random bounty for the session
     const bounties = [
-      { task: "Náðu 3 'Nýir' sölum í röð", reward: "🔥 Hot Streak Badge" },
-      { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "🏆 High Roller Status" },
-      { task: "Fáðu eina sölu yfir 5.000 kr", reward: "💎 Big Fish Badge" },
-      { task: "Náðu markmiði fyrir kl 15:00", reward: "⚡ Speed Demon" }
+      { task: "Safnaðu 5.000 kr þennan klukkutímann", reward: "⚡ Power Hour" },
+      { task: "Tvær sölur á næstu 60 mínútum", reward: "🔥 Hot Streak" },
+      { task: "Náðu 25.000 kr fyrir lok vaktar", reward: "🏆 Daily Goal Hero" },
+      { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "💎 High Roller" },
+      { task: "3 'Nýir' sölur í röð", reward: "🎲 Hat Trick" },
+      { task: "Fylltu hringinn fyrir pásu", reward: "⭕ Circle K" }
     ];
-    setDailyBounty(bounties[Math.floor(Math.random() * bounties.length)]);
+    // Select 3 random unique bounties
+    const shuffled = bounties.sort(() => 0.5 - Math.random());
+    setDailyBounties(shuffled.slice(0, 3));
 
     // Check for active shift
     const storedStart = localStorage.getItem('takk_shift_start');
@@ -242,6 +247,7 @@ const App: React.FC = () => {
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
     { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
     { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
+    { id: 'competitions', icon: <Trophy size={20} />, label: 'Keppni' },
     { id: 'speech', icon: <Mic2 size={20} />, label: 'MorriAI' },
     { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
     { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
@@ -331,10 +337,11 @@ const App: React.FC = () => {
                 onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })}
                 userRole={user.role}
                 userId={user.staffId}
-                dailyBounty={dailyBounty} // Pass bounty here
+                dailyBounties={dailyBounties} // Pass array here
               />
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
+            {activeTab === 'competitions' && <Competitions />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
             {activeTab === 'history' && (
               <ShiftList shifts={shifts} onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} onAddShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} />
@@ -357,7 +364,7 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'daily' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && (
+            {activeTab !== 'manager_dash' && activeTab !== 'dashboard' && activeTab !== 'daily' && activeTab !== 'register' && activeTab !== 'insights' && activeTab !== 'speech' && activeTab !== 'history' && activeTab !== 'payslip' && activeTab !== 'admin' && activeTab !== 'settings' && activeTab !== 'competitions' && (
               <div className="text-center py-20 text-slate-500"><button onClick={() => setActiveTab('dashboard')} className="px-4 py-2 bg-indigo-600 rounded-lg text-white font-bold">Fara á mælaborð</button></div>
             )}
           </div>

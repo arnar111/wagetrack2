@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 
 // --- CONFIGURATION (DEC 2025 STANDARDS) ---
-const FAST_MODEL = "gemini-3-flash-preview"; 
+const FAST_MODEL = "gemini-3-flash-preview";
 const SMART_MODEL = "gemini-3-pro-preview";
 
 const getApiKey = (): string => {
@@ -45,8 +45,8 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
   try {
     const lastMsg = history[history.length - 1];
     const previousHistory = history.slice(0, -1).map(h => ({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: h.parts
+      role: h.role === 'assistant' ? 'model' : 'user',
+      parts: h.parts
     }));
 
     const chat = model.startChat({ history: previousHistory });
@@ -100,10 +100,10 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
 
   try {
     const systemInstruction = `Þú ert reyndur sölumaður. Skrifaðu sannfærandi texta.`;
-    const userPrompt = mode === 'create' 
+    const userPrompt = mode === 'create'
       ? `Skrifaðu söluræðu fyrir ${project}. 70-100 orð. Íslenska.`
       : `Hvað gerir ${project}? Stutt yfirlit á íslensku.`;
-    
+
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\-_>]/g, '').trim(), sources: [] };
   } catch (e) {
@@ -118,12 +118,12 @@ export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodS
 
   try {
     const prompt = `
-      Greindu stöðuna (fjáröflun):
+      Greindu stöðuna (fjáröflun) sem "Sales Coach".
       DAGURINN: Sala ${salesToday} kr (Markmið ${goals.daily} kr).
       MÁNUÐURINN: Sala ${totalPeriodSales} kr (Markmið ${goals.monthly} kr).
       
       Svaraðu í JSON á ÍSLENSKU.
-      Format: {"smartAdvice": "mjög stutt ráð (max 8 orð)", "trend": "up/down/stable", "motivationalQuote": "tilvitnun", "projectedEarnings": ${totalPeriodSales}}
+      Format: {"smartAdvice": "Stutt, hvetjandi ráð sem 'Sales Coach' (max 6 orð). Focus on the gap!", "trend": "up/down/stable", "motivationalQuote": "tilvitnun", "projectedEarnings": ${totalPeriodSales}}
     `;
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],

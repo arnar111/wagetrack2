@@ -38,7 +38,7 @@ interface RegistrationProps {
     onUpdateGoals: (g: Goals) => void;
     userRole?: string;
     userId?: string;
-    dailyBounty?: { task: string, reward: string } | null;
+    dailyBounties?: { task: string, reward: string }[];
 
     // Global Shift Props
     isShiftActive: boolean;
@@ -48,7 +48,7 @@ interface RegistrationProps {
 }
 
 const Registration: React.FC<RegistrationProps> = ({
-    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, goals, onUpdateGoals, dailyBounty,
+    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, goals, onUpdateGoals, dailyBounties,
     isShiftActive, clockInTime, onClockIn, onClockOut
 }) => {
     const [now, setNow] = useState(new Date());
@@ -165,14 +165,19 @@ const Registration: React.FC<RegistrationProps> = ({
     const nextLevel = LEVELS.find(l => l.id === currentLevel.id + 1);
     const distToNextLevel = nextLevel ? nextLevel.min - totalSalesToday : 0;
 
-    // Check if Bounty Complete
-    const isBountyComplete = useMemo(() => {
-        if (!dailyBounty) return false;
-        if (dailyBounty.task.includes("30.000") && totalSalesToday >= 30000) return true;
-        if (dailyBounty.task.includes("Nýir") && newSalesCount >= 3) return true;
-        if (dailyBounty.task.includes("5.000") && todaySales.some(s => s.amount >= 5000)) return true;
-        return false;
-    }, [dailyBounty, totalSalesToday, newSalesCount, todaySales]);
+    // Check for Completed Bounties
+    const completedBountyIndices = useMemo(() => {
+        if (!dailyBounties) return [];
+        return dailyBounties.map((b, i) => {
+            if (b.task.includes("30.000") && totalSalesToday >= 30000) return i;
+            if (b.task.includes("Nýir") && newSalesCount >= 3) return i;
+            if (b.task.includes(" röð") && newSalesCount >= 3) return i; // Catch-all for sequential tasks if simplified logic
+            if (b.task.includes("5.000") && todaySales.some(s => s.amount >= 5000)) return i;
+            if (b.task.includes("25.000") && totalSalesToday >= 25000) return i;
+            if (b.task.includes("Tvær sölur") && todaySales.length >= 2) return i; // Simplified check for "next 60 mins" for now
+            return -1;
+        }).filter(i => i !== -1);
+    }, [dailyBounties, totalSalesToday, newSalesCount, todaySales]);
 
     // --- Actions ---
     const handleClockClick = () => {
@@ -290,13 +295,10 @@ const Registration: React.FC<RegistrationProps> = ({
                         <h2 className="text-2xl font-black text-white uppercase italic">Söluskráning</h2>
                         <p className="text-xs text-slate-500 font-bold uppercase">{todaySales.length} færslur í dag</p>
                     </div>
-                    <button onClick={handleClockClick} className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider ${isShiftActive ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                        {isShiftActive ? "Pása / Út" : "Skrá inn"}
-                    </button>
                 </div>
 
-                {dailyBounty && (
-                    <BountyCard bounty={dailyBounty} isComplete={isBountyComplete} />
+                {dailyBounties && dailyBounties.length > 0 && (
+                    <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
                 )}
 
                 <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
@@ -480,10 +482,6 @@ const Registration: React.FC<RegistrationProps> = ({
                         {isShiftActive ? 'Vakt í gangi - Gangi þér vel!' : 'Byrjaðu vaktina'}
                     </p>
                 </div>
-                <button onClick={handleClockClick} className={`w-full md:w-auto px-8 py-4 rounded-[24px] font-black uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isShiftActive ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
-                    {isShiftActive ? <LogOut size={20} /> : <LogIn size={20} />}
-                    {isShiftActive ? "Skrá út" : "Skrá inn"}
-                </button>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -556,8 +554,8 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
 
                 <div className="flex flex-col gap-6 lg:col-span-1 h-full">
-                    {dailyBounty && (
-                        <BountyCard bounty={dailyBounty} isComplete={isBountyComplete} />
+                    {dailyBounties && dailyBounties.length > 0 && (
+                        <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
                     )}
 
                     <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
