@@ -59,6 +59,7 @@ const App: React.FC = () => {
   const [goals, setGoals] = useState<Goals>({ daily: 25000, monthly: 800000 });
   const [wageSettings, setWageSettings] = useState(DEFAULT_WAGE_SETTINGS);
   const [aiInsights, setAiInsights] = useState<string>('');
+  const [coachPersonality, setCoachPersonality] = useState<string>('standard'); // Default personality
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
@@ -314,7 +315,7 @@ const App: React.FC = () => {
                 onUpdateGoals={(g) => setDoc(doc(db, "user_configs", user.staffId), { goals: g }, { merge: true })}
                 sales={sales}
                 staffId={user.staffId}
-
+                coachPersonality={coachPersonality}
               />
             )}
 
@@ -338,10 +339,11 @@ const App: React.FC = () => {
                 userRole={user.role}
                 userId={user.staffId}
                 dailyBounties={dailyBounties} // Pass array here
+                coachPersonality={coachPersonality}
               />
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}
-            {activeTab === 'competitions' && <Competitions />}
+            {activeTab === 'competitions' && <Competitions sales={sales} shifts={shifts} user={user} />}
             {activeTab === 'speech' && <SpeechAssistant summary={summary} />}
             {activeTab === 'history' && (
               <ShiftList shifts={shifts} onDelete={async (id) => await deleteDoc(doc(db, "shifts", id))} onEdit={(s) => { setEditingShift(s); setActiveTab('register'); }} onAddShift={async (s) => await addDoc(collection(db, "shifts"), { ...s, userId: user.staffId })} />
@@ -349,16 +351,49 @@ const App: React.FC = () => {
             {activeTab === 'payslip' && <Payslip shifts={shifts} sales={sales} summary={summary} settings={wageSettings} userName={user.name} onUpdateSettings={(s) => setDoc(doc(db, "user_configs", user.staffId), { wageSettings: s }, { merge: true })} />}
             {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={setAllUsers} />}
             {activeTab === 'settings' && (
-              <div className="glass rounded-[40px] p-8 max-w-2xl border-white/10 mx-auto shadow-2xl">
-                <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Dagvinna</label>
-                    <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({ ...wageSettings, dayRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
+              <div className="glass rounded-[40px] p-8 max-w-4xl border-white/10 mx-auto shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <h3 className="text-xl font-black mb-8 text-indigo-400 italic uppercase tracking-tighter text-center">Kerfisstillingar & MorriAI</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  {/* Wage Settings */}
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">Launastillingar</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Dagvinna</label>
+                        <input type="number" value={wageSettings.dayRate} onChange={e => setWageSettings({ ...wageSettings, dayRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-indigo-500 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Eftirvinna</label>
+                        <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({ ...wageSettings, eveningRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-indigo-500 transition-colors" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Eftirvinna</label>
-                    <input type="number" value={wageSettings.eveningRate} onChange={e => setWageSettings({ ...wageSettings, eveningRate: parseFloat(e.target.value) })} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black text-2xl outline-none text-center" />
+
+                  {/* MorriAI Personality */}
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest border-b border-white/10 pb-2">MorriAI Persónuleiki</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {[
+                        { id: 'standard', name: 'Standard', desc: 'Jafnvægi og hvatning', icon: '🤖' },
+                        { id: 'drill_sergeant', name: 'Drill Sergeant', desc: 'Harka og agi', icon: '🪖' },
+                        { id: 'zen_master', name: 'Zen Master', desc: 'Ró og einbeiting', icon: '🧘' },
+                        { id: 'wolf', name: 'The Wolf', desc: 'Peningar og árangur', icon: '🐺' },
+                      ].map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setCoachPersonality(p.id)}
+                          className={`p-4 rounded-2xl border text-left flex items-center gap-4 transition-all hover:scale-[1.02] ${coachPersonality === p.id ? 'bg-indigo-500/20 border-indigo-500 shadow-lg shadow-indigo-500/10' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                        >
+                          <span className="text-2xl">{p.icon}</span>
+                          <div>
+                            <p className={`text-xs font-black uppercase ${coachPersonality === p.id ? 'text-indigo-400' : 'text-white'}`}>{p.name}</p>
+                            <p className="text-[10px] text-slate-500">{p.desc}</p>
+                          </div>
+                          {coachPersonality === p.id && <div className="ml-auto w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_currentColor]" />}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

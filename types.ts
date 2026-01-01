@@ -6,6 +6,18 @@ export interface User {
   team: 'Hringurinn' | 'Verið' | 'Other';
   uid?: string;
   email?: string;
+  coins?: number; // <--- Added
+}
+
+export type CoachPersonality = 'standard' | 'drill_sergeant' | 'zen_master' | 'wolf';
+
+export interface StoreItem {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  icon: string; // Using lucide icon name or emoji for now
+  effect?: 'sound' | 'theme' | 'badge' | 'silence';
 }
 
 export interface Shift {
@@ -27,7 +39,7 @@ export interface Sale {
   amount: number;
   project: string;
   userId: string;
-  saleType?: 'new' | 'upgrade'; 
+  saleType?: 'new' | 'upgrade';
 }
 
 export interface WageSummary {

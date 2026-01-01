@@ -14,14 +14,15 @@ const ShiftList: React.FC<ShiftListProps> = ({ shifts, onDelete, onEdit, onAddSh
   const [sickData, setSickData] = useState({ date: new Date().toISOString().split('T')[0], dayHours: 0, eveningHours: 0 });
   const [viewMode, setViewMode] = useState<'list' | 'plan'>('list');
 
-  // Forecaster Mock Data (Real implementation would calculate this based on user stats)
+  // Forecaster Mock Data
   const forecastDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i + 1);
+    const isWeekendDay = d.getDay() === 0 || d.getDay() === 6;
     return {
       date: d,
-      projected: 35000 + Math.random() * 15000,
-      isWeekend: d.getDay() === 0 || d.getDay() === 6
+      projected: isWeekendDay ? 0 : 35000 + Math.random() * 15000,
+      isWeekend: isWeekendDay
     };
   });
 

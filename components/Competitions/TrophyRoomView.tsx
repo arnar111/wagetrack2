@@ -1,15 +1,22 @@
 import React from 'react';
 import { Lock, Star, Zap, Award, Target, Flame } from 'lucide-react';
 
-const TrophyRoomView = () => {
-    const badges = [
-        { id: 1, name: "Hot Streak", desc: "3 sölur í röð", icon: <Flame size={24} />, earned: true, date: "20. Des" },
-        { id: 2, name: "High Roller", desc: "Sala yfir 30k", icon: <Star size={24} />, earned: true, date: "18. Des" },
-        { id: 3, name: "Millionaire", desc: "1m í heildarsölu", icon: <Award size={24} />, earned: true, date: "15. Des" },
-        { id: 4, name: "Speed Demon", desc: "Sala á fyrstu 10 mín", icon: <Zap size={24} />, earned: false, progress: "0/1" },
-        { id: 5, name: "Closer", desc: "Loka 5 sölum í dag", icon: <Target size={24} />, earned: false, progress: "3/5" },
-        { id: 6, name: "Legend", desc: "5m í heildarsölu", icon: <CrownIcon size={24} />, earned: false, progress: "1.2m/5m" },
-    ];
+export interface Badge {
+    id: number;
+    name: string;
+    desc: string;
+    icon: React.ReactNode;
+    earned: boolean;
+    reward: number; // Takk Coins
+    date?: string;
+    progress?: string;
+}
+
+interface TrophyRoomProps {
+    badges: Badge[];
+}
+
+const TrophyRoomView: React.FC<TrophyRoomProps> = ({ badges }) => {
 
     function CrownIcon({ size }: { size: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" /></svg> }
 
@@ -21,6 +28,11 @@ const TrophyRoomView = () => {
                     {!b.earned && (
                         <div className="absolute top-3 right-3 text-slate-600"><Lock size={16} /></div>
                     )}
+
+                    {/* Reward Badge */}
+                    <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black text-amber-400 flex items-center gap-1">
+                        <span>+{b.reward}</span> 🪙
+                    </div>
 
                     <div className={`p-4 rounded-full ${b.earned ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-500/50 scale-110' : 'bg-white/10 text-slate-500'}`}>
                         {b.icon}

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { WageSummary, Shift, Goals, Sale } from '../types';
-import { TrendingUp, Award, Calendar, DollarSign, Activity, Target, Play, StopCircle, Clock, Timer } from 'lucide-react';
-import { getSmartDashboardAnalysis } from '../geminiService.ts';
+import { TrendingUp, Award, Calendar, DollarSign, Activity, Target, Play, StopCircle, Clock, Timer, Zap, MessageCircle } from 'lucide-react';
+import { getSmartDashboardAnalysis, getPreShiftBriefing } from '../geminiService.ts';
 import { motion, AnimatePresence } from 'framer-motion';
 import NumberTicker from './NumberTicker.tsx';
 
@@ -19,13 +19,15 @@ interface DashboardProps {
     clockInTime: Date | null;
     onClockIn: (goal: number) => void;
     onClockOut: (shiftData: any) => void;
+    coachPersonality: string;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
     summary, shifts, periodShifts, onAddClick, goals, onUpdateGoals, sales,
-    isShiftActive, clockInTime, onClockIn, onClockOut
+    isShiftActive, clockInTime, onClockIn, onClockOut, coachPersonality
 }) => {
-    const [aiData, setAiData] = useState<any>(null);
+    const [aiData, setAiData] = useState<{ smartAdvice: string, trend: string, motivationalQuote: string } | null>(null);
+    const [briefing, setBriefing] = useState<{ title: string, body: string } | null>(null);
     const [timerStr, setTimerStr] = useState("00:00");
     const [hoursWorked, setHoursWorked] = useState(0);
 
@@ -57,12 +59,23 @@ const Dashboard: React.FC<DashboardProps> = ({
     }, [sales]);
 
     useEffect(() => {
-        const fetchAI = async () => {
-            const data = await getSmartDashboardAnalysis(salesToday, summary.totalSales, goals);
-            setAiData(data);
+        const fetchData = async () => {
+            if (summary.totalSales > 0) {
+                const data = await getSmartDashboardAnalysis(
+                    summary.totalSales, // Today (using summary for now as approx)
+                    summary.totalSales, // Month
+                    goals,
+                    coachPersonality // <--- Pass Personality
+                );
+                setAiData(data);
+            }
+
+            // Mock Yesterday Sales for Briefing
+            const briefingData = await getPreShiftBriefing(15000, coachPersonality);
+            setBriefing(briefingData);
         };
-        if (sales.length > 0) fetchAI();
-    }, [salesToday, summary.totalSales, goals.daily, goals.monthly]);
+        fetchData();
+    }, [summary.totalSales, goals, coachPersonality]);
 
     const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
 
@@ -238,7 +251,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* Stats Row */}
+                {/* NEW: Pre-Shift Briefing (Morgunfundur) */}
+                {briefing && !isShiftActive && (
+                    <div className="glass p-6 rounded-[32px] border-amber-500/20 bg-amber-500/5 relative overflow-hidden animate-in zoom-in duration-500">
+                        <div className="absolute top-0 right-0 p-8 w-64 h-64 bg-amber-500/10 blur-[80px] rounded-full pointer-events-none" />
+                        <div className="flex gap-4 relative z-10">
+                            <div className="p-3 bg-amber-500 rounded-2xl text-slate-900 h-fit">
+                                <MessageCircle size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-white italic uppercase">{briefing.title}</h3>
+                                <p className="text-sm text-slate-300 mt-1 leading-relaxed">{briefing.body}</p>
+                                <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+                                    <span>MorriAI ({coachPersonality})</span>
+                                    <div className="h-1 w-1 rounded-full bg-amber-500" />
+                                    <span>Morgunfundur</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Quick Stats Grid */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="glass p-5 rounded-[24px] border-white/5">
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Vaktir</p>

@@ -111,27 +111,84 @@ export const getSpeechAssistantResponse = async (mode: 'create' | 'search', proj
   }
 };
 
-// --- DASHBOARD ANALYSIS (Context Aware) ---
-export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodSales: number, goals: Goals) => {
+// --- 1. SMART DASHBOARD ANALYSIS (Sales Coach) ---
+export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodSales: number, goals: Goals, personality: string = 'standard') => {
   const model = getModel(FAST_MODEL);
   if (!model) return { smartAdvice: "Bíður eftir lykli...", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
 
   try {
     const prompt = `
-      Greindu stöðuna (fjáröflun) sem "Sales Coach".
-      DAGURINN: Sala ${salesToday} kr (Markmið ${goals.daily} kr).
-      MÁNUÐURINN: Sala ${totalPeriodSales} kr (Markmið ${goals.monthly} kr).
+      Act as a Sales Coach with the personality: "${personality}".
       
-      Svaraðu í JSON á ÍSLENSKU.
-      Format: {"smartAdvice": "Stutt, hvetjandi ráð sem 'Sales Coach' (max 6 orð). Focus on the gap!", "trend": "up/down/stable", "motivationalQuote": "tilvitnun", "projectedEarnings": ${totalPeriodSales}}
+      Personality Traits:
+      - standard: Encouraging, professional, balanced.
+      - drill_sergeant: Strict, loud, demanding, focuses on speed and discipline.
+      - zen_master: Calm, philosophical, focuses on focus and flow.
+      - wolf: Aggressive, money-orientated, "Greed is good".
+
+      Analyze the status:
+      TODAY: Sales ${salesToday} ISK (Goal ${goals.daily} ISK).
+      MONTH: Sales ${totalPeriodSales} ISK (Goal ${goals.monthly} ISK).
+      
+      Respond in JSON in ICELANDIC.
+      Format: {"smartAdvice": "very short advice (max 6 words) matching personality", "trend": "up/down/stable", "motivationalQuote": "quote matching personality", "projectedEarnings": ${totalPeriodSales}}
     `;
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    return JSON.parse(stripMarkdown(result.response.text()));
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text(); // Get raw text
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim(); // Clean markdown
+    return JSON.parse(cleanText);
+
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    return {
+      smartAdvice: "Greini gögn...",
+      trend: 'stable',
+      motivationalQuote: "Áfram gakk!",
+      projectedEarnings: totalPeriodSales
+    };
+  }
+};
+
+// --- NEW: LIVE WINGMAN ---
+export const getWingmanMessage = async (minutesSinceSale: number, personality: string) => {
+  const model = getModel(FAST_MODEL);
+  if (!model) return "Enginn API lykill...";
+
+  try {
+    const prompt = `
+            Act as a Sales Coach (${personality}).
+            The user hasn't made a sale in ${minutesSinceSale} minutes.
+            Give a SHORT, punchy notification text (max 8 words) to wake them up.
+            Language: Icelandic.
+        `;
+    const result = await model.generateContent(prompt);
+    return (await result.response).text();
   } catch (e) {
-    return { smartAdvice: "Gat ekki greint gögn.", trend: 'stable', motivationalQuote: "Haltu áfram!", projectedEarnings: totalPeriodSales };
+    return "Hringdu í næsta!";
+  }
+};
+
+// --- NEW: PRE-SHIFT BRIEFING ---
+export const getPreShiftBriefing = async (yesterdaySales: number, personality: string) => {
+  const model = getModel(FAST_MODEL);
+  if (!model) return { title: "Góðan dag!", body: "Gangi þér vel í dag." };
+
+  try {
+    const prompt = `
+            Act as a Sales Coach (${personality}).
+            Yesterday's sales were: ${yesterdaySales} ISK.
+            and Write a pre-shift briefing for today.
+            Format JSON: { "title": "Short Title", "body": "2 sentences advice" }
+            Language: Icelandic.
+        `;
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    return { title: "Góðan dag!", body: "Gangi þér vel í dag." };
   }
 };
 

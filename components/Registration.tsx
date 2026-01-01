@@ -23,7 +23,8 @@ import {
     Plus,
     Minus,
     AlertTriangle,
-    Ghost
+    Ghost,
+    Zap // <--- Added
 } from 'lucide-react';
 
 interface RegistrationProps {
@@ -36,9 +37,10 @@ interface RegistrationProps {
     editingShift: Shift | null;
     goals: Goals;
     onUpdateGoals: (g: Goals) => void;
-    userRole?: string;
-    userId?: string;
+    userRole: string;
+    userId: string;
     dailyBounties?: { task: string, reward: string }[];
+    coachPersonality?: string; // <--- Added
 
     // Global Shift Props
     isShiftActive: boolean;
@@ -48,7 +50,7 @@ interface RegistrationProps {
 }
 
 const Registration: React.FC<RegistrationProps> = ({
-    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, goals, onUpdateGoals, dailyBounties,
+    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, coachPersonality = "standard",
     isShiftActive, clockInTime, onClockIn, onClockOut
 }) => {
     const [now, setNow] = useState(new Date());
@@ -79,6 +81,23 @@ const Registration: React.FC<RegistrationProps> = ({
         amount: 0,
         project: PROJECTS[0]
     });
+
+    // --- WINGMAN LOGIC ---
+    const [wingmanMsg, setWingmanMsg] = useState<string | null>(null);
+
+    useEffect(() => {
+        const checkWingman = async () => {
+            if (isShiftActive && Math.random() > 0.05) { // 5% chance every 30s check implicitly or on mount
+                // In real app, check time diff. 
+            }
+            if (isShiftActive && Math.random() > 0.7) {
+                const msg = await import('../geminiService').then(m => m.getWingmanMessage(45, coachPersonality));
+                setWingmanMsg(msg);
+            }
+        };
+        // Simple trigger on mount for demo
+        if (isShiftActive) checkWingman();
+    }, [isShiftActive, coachPersonality]);
 
     // --- Initial Load ---
     useEffect(() => {
@@ -299,6 +318,20 @@ const Registration: React.FC<RegistrationProps> = ({
 
                 {dailyBounties && dailyBounties.length > 0 && (
                     <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
+                )}
+
+                {/* NEW: Wingman Card */}
+                {wingmanMsg && (
+                    <div className="mx-2 p-4 rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xl animate-in slide-in-from-right-8 duration-500 flex items-center gap-4 relative overflow-hidden">
+                        <div className="p-2 bg-white/20 rounded-full animate-pulse">
+                            <Zap size={20} fill="currentColor" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase opacity-75">MorriAI Wingman</p>
+                            <p className="text-sm font-bold italic">"{wingmanMsg}"</p>
+                        </div>
+                        <button onClick={() => setWingmanMsg(null)} className="absolute top-2 right-2 p-1 hover:bg-white/10 rounded-full text-white/50">X</button>
+                    </div>
                 )}
 
                 <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
@@ -556,6 +589,21 @@ const Registration: React.FC<RegistrationProps> = ({
                 <div className="flex flex-col gap-6 lg:col-span-1 h-full">
                     {dailyBounties && dailyBounties.length > 0 && (
                         <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
+                    )}
+
+                    {/* NEW: Wingman Card (Desktop) */}
+                    {wingmanMsg && (
+                        <div className="glass p-5 rounded-[32px] bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border-violet-500/30 flex items-center gap-4 relative overflow-hidden animate-in slide-in-from-right-8 duration-500">
+                            <div className="absolute top-0 right-0 p-8 w-32 h-32 bg-violet-500/20 blur-[40px] rounded-full pointer-events-none" />
+                            <div className="p-3 bg-indigo-500 rounded-xl text-white animate-pulse shadow-lg shadow-indigo-500/20">
+                                <Zap size={24} fill="currentColor" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-1">MorriAI Wingman</p>
+                                <p className="text-sm font-bold text-white italic leading-relaxed">"{wingmanMsg}"</p>
+                            </div>
+                            <button onClick={() => setWingmanMsg(null)} className="absolute top-3 right-3 p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"><X size={16} /></button>
+                        </div>
                     )}
 
                     <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
