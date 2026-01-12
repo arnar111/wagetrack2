@@ -525,15 +525,15 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center p-4 rounded-2xl bg-white/5">
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Daglegt</p>
-                        <p className="text-xl font-black text-emerald-400">{goals.daily.toLocaleString('is-IS')}</p>
+                        <p className="text-xl font-black text-emerald-400">{(goals?.daily ?? 0).toLocaleString('is-IS')}</p>
                       </div>
                       <div className="text-center p-4 rounded-2xl bg-white/5">
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Vikulegt</p>
-                        <p className="text-xl font-black text-amber-400">{goals.weekly.toLocaleString('is-IS')}</p>
+                        <p className="text-xl font-black text-amber-400">{(goals?.weekly ?? 0).toLocaleString('is-IS')}</p>
                       </div>
                       <div className="text-center p-4 rounded-2xl bg-white/5">
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Mánaðarlegt</p>
-                        <p className="text-xl font-black text-violet-400">{goals.monthly.toLocaleString('is-IS')}</p>
+                        <p className="text-xl font-black text-violet-400">{(goals?.monthly ?? 0).toLocaleString('is-IS')}</p>
                       </div>
                     </div>
                   </div>
