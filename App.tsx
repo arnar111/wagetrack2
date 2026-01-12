@@ -86,7 +86,10 @@ const App: React.FC = () => {
     requireOFCheck,
     autoPausesEnabled,
     coachPersonality,
-    updateGoals
+    updateGoals,
+    updateRequireOFCheck,
+    updateAutoPausesEnabled,
+    updateCoachPersonality
   } = useUserConfig(user?.staffId);
 
   const { isShiftActive, clockInTime, handleClockIn, handleClockOut } = useShiftClock();
@@ -450,7 +453,91 @@ const App: React.FC = () => {
             {activeTab === 'admin' && isAdmin && <Admin users={allUsers} onUpdateUsers={() => { }} />}
             {activeTab === 'settings' && (
               <div className="glass rounded-[40px] p-8 max-w-4xl border-white/10 mx-auto shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
-                {/* Settings Content */}
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="p-4 rounded-2xl bg-indigo-500/20">
+                    <Settings size={28} className="text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Stillingar</h2>
+                    <p className="text-sm text-slate-500 font-bold">Sérsniðnar stillingar</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* OF Check Toggle */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-black text-white uppercase tracking-wide mb-1">Krefjast OF skráningar</h3>
+                      <p className="text-xs text-slate-500">Þegar kveikt, þarftu að haka við OF reitinn áður en þú getur vistað sölu</p>
+                    </div>
+                    <button
+                      onClick={() => updateRequireOFCheck(!requireOFCheck)}
+                      className={`w-14 h-8 rounded-full transition-all relative ${requireOFCheck ? 'bg-emerald-500' : 'bg-white/20'}`}
+                    >
+                      <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all ${requireOFCheck ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Auto Pauses Toggle */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-black text-white uppercase tracking-wide mb-1">Sjálfvirkar pásum</h3>
+                      <p className="text-xs text-slate-500">Sýna hnappa til að skrá 15 eða 30 mínútna pásum í skráningarflipa</p>
+                    </div>
+                    <button
+                      onClick={() => updateAutoPausesEnabled(!autoPausesEnabled)}
+                      className={`w-14 h-8 rounded-full transition-all relative ${autoPausesEnabled ? 'bg-emerald-500' : 'bg-white/20'}`}
+                    >
+                      <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all ${autoPausesEnabled ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Coach Personality Selector */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wide mb-1">MorriAI Þjálfari</h3>
+                    <p className="text-xs text-slate-500 mb-4">Veldu persónuleika fyrir þjálfarann þinn</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { id: 'standard', name: 'Venjulegur', emoji: '🎯', desc: 'Jákvæður og hvetjandi' },
+                        { id: 'drill_sergeant', name: 'Herforingi', emoji: '🎖️', desc: 'Harður og beinskeyttur' },
+                        { id: 'zen_master', name: 'Zen Meistari', emoji: '🧘', desc: 'Rólegt og íhugt' },
+                        { id: 'wolf', name: 'Úlfurinn', emoji: '🐺', desc: 'Samkeppnishvattur' },
+                      ].map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => updateCoachPersonality(p.id)}
+                          className={`p-4 rounded-2xl text-left transition-all ${coachPersonality === p.id
+                            ? 'bg-indigo-500/30 border-2 border-indigo-500'
+                            : 'bg-white/5 border-2 border-transparent hover:bg-white/10'
+                            }`}
+                        >
+                          <span className="text-2xl mb-2 block">{p.emoji}</span>
+                          <p className="font-black text-white text-sm">{p.name}</p>
+                          <p className="text-[10px] text-slate-500">{p.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Current Goals Display */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+                    <h3 className="text-sm font-black text-white uppercase tracking-wide mb-4">Núverandi markmið</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4 rounded-2xl bg-white/5">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Daglegt</p>
+                        <p className="text-xl font-black text-emerald-400">{goals.daily.toLocaleString('is-IS')}</p>
+                      </div>
+                      <div className="text-center p-4 rounded-2xl bg-white/5">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Vikulegt</p>
+                        <p className="text-xl font-black text-amber-400">{goals.weekly.toLocaleString('is-IS')}</p>
+                      </div>
+                      <div className="text-center p-4 rounded-2xl bg-white/5">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Mánaðarlegt</p>
+                        <p className="text-xl font-black text-violet-400">{goals.monthly.toLocaleString('is-IS')}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
