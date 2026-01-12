@@ -73,13 +73,15 @@ export const useBattles = (
             }));
     }, [battles, userId]);
 
-    // Find active battle for current user
+    // Find active battle for current user (must be active status AND not ended by time)
     const activeBattle = useMemo((): Battle | null => {
         if (!userId) return null;
+        const now = new Date();
 
         return battles.find(b =>
             b.status === 'active' &&
-            b.participants.some(p => p.userId === userId)
+            b.participants.some(p => p.userId === userId) &&
+            new Date(b.endTime) > now // Battle end time must be in the future
         ) || null;
     }, [battles, userId]);
 

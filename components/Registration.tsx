@@ -444,6 +444,10 @@ const Registration: React.FC<RegistrationProps> = ({
     const renderActiveBattleCard = () => {
         if (!activeBattle) return null;
 
+        // Don't show if battle has ended
+        const battleEndTime = new Date(activeBattle.endTime).getTime();
+        if (battleEndTime <= now.getTime()) return null;
+
         const myData = activeBattle.participants.find(p => p.userId === userId);
         const opponentData = activeBattle.participants.find(p => p.userId !== userId);
 
@@ -600,19 +604,6 @@ const Registration: React.FC<RegistrationProps> = ({
                     <button onClick={handleAddSale} className="w-full py-4 gradient-bg rounded-2xl text-white font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">
                         Staðfesta Sölu
                     </button>
-                </div>
-
-                {/* Ghost Racer */}
-                <div className="glass p-4 rounded-[24px] border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Ghost size={20} className={isWinningGhost ? "text-emerald-400" : "text-rose-400"} />
-                        <div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ghost Racer</p>
-                            <p className={`text-xs font-bold ${isWinningGhost ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isWinningGhost ? `+${formatISK(totalSalesToday - ghostTarget)} vs Meðaltal` : `-${formatISK(ghostTarget - totalSalesToday)} vs Meðaltal`}
-                            </p>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="space-y-3">
