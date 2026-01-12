@@ -28,10 +28,10 @@ interface CompetitionsPageProps {
     onCancelBattle: (battleId: string) => void;
 }
 
-const CompetitionsPage: React.FC<CompetitionsPageProps> = ({ 
-    sales, 
-    shifts, 
-    user, 
+const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
+    sales,
+    shifts,
+    user,
     allUsers = [],
     battles,
     onCreateBattle,
@@ -174,7 +174,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
         if (mockBattles.length > 0 && (user.id === '123' || user.staffId === '123')) {
             initSales();
         }
-    }, [mockBattles, user.id, user.staffId]); 
+    }, [mockBattles, user.id, user.staffId]);
 
     // --- LEADERBOARD LOGIC ---
     const leaderboardData = useMemo(() => {
@@ -246,7 +246,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
                     Kepstu og sjáðu hvar þú stendur
                 </p>
             </div>
-            
+
             <div className="grid grid-cols-4 gap-2 pb-4 px-4 md:px-0">
                 {[
                     { id: 'battles' as const, label: 'Battles', icon: <Swords size={18} />, color: 'rose' },
@@ -292,8 +292,8 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
                 {mainTab === 'battles' && (
                     <>
                         {battleSubTab === 'headtohead' && (
-                            <DuelArenaView 
-                                sales={sales} 
+                            <DuelArenaView
+                                sales={sales}
                                 user={user}
                                 allUsers={allUsers}
                                 onBattleCreated={(battle) => {
@@ -305,7 +305,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
                             />
                         )}
                         {battleSubTab === 'live' && (
-                            <LiveBattlesView 
+                            <LiveBattlesView
                                 battles={battles} // Pass global battles
                                 sales={sales}
                                 user={user}
@@ -386,6 +386,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
             {showBossCreator && (
                 <BossBattleCreator
                     userCoins={0} // TODO: Get from user
+                    currentUserId={user.id}
                     onClose={() => setShowBossCreator(false)}
                     onCreate={(boss) => {
                         console.log('Boss created:', boss);

@@ -238,17 +238,28 @@ export interface Rivalry {
 export interface BossBattle {
   id: string;
   name: string;
-  avatar: string;
-  difficulty: number;
-  targetSales: number;
-  currentSales: number;
+  avatar?: string;
+  tier?: 'bronze' | 'silver' | 'gold' | 'diamond';
+  battleType?: 'target' | 'sales_count' | 'highest_sale';
+  difficulty?: number;
+  targetSales?: number;
+  targetValue?: number;
+  currentSales?: number;
+  currentDamage?: number;
   participants: string[];
-  contributionLeaderboard: { userId: string; contribution: number }[];
-  rewards: { coins: number; badges: string[]; items: string[] };
-  isActive: boolean;
-  startedAt: string;
-  endsAt: string;
+  contributionLeaderboard?: { userId: string; contribution: number }[];
+  rewards?: { coins: number; badges: string[]; items: string[] };
+  abilities?: string[];
+  powerUps?: string[];
+  duration?: number;
+  isActive?: boolean;
+  startTime?: string;
+  endTime?: string;
+  startedAt?: string;
+  endsAt?: string;
+  status?: 'pending' | 'active' | 'completed' | 'failed';
   createdBy: string;
+  isManagerCreated?: boolean;
 }
 
 // Community Challenge

@@ -53,7 +53,13 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
     // Filter users by team
     const teamMembers = useMemo(() => {
         if (selectedTeam === 'custom') return allUsers;
-        return allUsers.filter(u => u.team === selectedTeam);
+        // Compare lowercase team IDs
+        const teamMap: Record<string, string> = {
+            'Hringurinn': 'hringurinn',
+            'Verið': 'verid',
+            'Götuteymið': 'gotuteymi'
+        };
+        return allUsers.filter(u => teamMap[u.team] === selectedTeam);
     }, [allUsers, selectedTeam]);
 
     // Calculate target
@@ -91,17 +97,7 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
             battleType: selectedType,
             targetValue: target,
             currentDamage: 0,
-            participants: selectedParticipants.map(userId => {
-                const user = allUsers.find(u => u.staffId === userId);
-                return {
-                    userId,
-                    name: user?.name || 'Unknown',
-                    avatar: user?.name?.substring(0, 2).toUpperCase() || '??',
-                    damage: 0,
-                    salesCount: 0,
-                    role: roleAssignments[userId] || null,
-                };
-            }),
+            participants: selectedParticipants, // string[] of userIds
             abilities: [],
             powerUps: [],
             duration,
@@ -133,10 +129,10 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                     onClick={() => isUnlocked && setSelectedTier(key as BossTier)}
                                     disabled={!isUnlocked}
                                     className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${isSelected
-                                            ? 'border-purple-500 bg-purple-500/20'
-                                            : isUnlocked
-                                                ? 'border-white/10 bg-white/5 hover:border-white/20'
-                                                : 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
+                                        ? 'border-purple-500 bg-purple-500/20'
+                                        : isUnlocked
+                                            ? 'border-white/10 bg-white/5 hover:border-white/20'
+                                            : 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
@@ -176,8 +172,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                     key={key}
                                     onClick={() => setSelectedType(key as BattleType)}
                                     className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${isSelected
-                                            ? 'border-purple-500 bg-purple-500/20'
-                                            : 'border-white/10 bg-white/5 hover:border-white/20'
+                                        ? 'border-purple-500 bg-purple-500/20'
+                                        : 'border-white/10 bg-white/5 hover:border-white/20'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -216,8 +212,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                         selectWholeTeam();
                                     }}
                                     className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${selectedTeam === key
-                                            ? 'bg-purple-500 text-white'
-                                            : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                        ? 'bg-purple-500 text-white'
+                                        : 'bg-white/10 text-slate-400 hover:bg-white/20'
                                         }`}
                                 >
                                     {team.emoji} {team.name}
@@ -237,8 +233,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                         onClick={() => toggleParticipant(user.staffId)}
                                         disabled={isSelf && !isManager}
                                         className={`w-full p-3 rounded-xl flex items-center justify-between transition-all ${isSelected
-                                                ? 'bg-emerald-500/20 border border-emerald-500/50'
-                                                : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                            ? 'bg-emerald-500/20 border border-emerald-500/50'
+                                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -284,8 +280,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                                 key={key}
                                                 onClick={() => assignRole(userId, key as SalesmanRole)}
                                                 className={`p-2 rounded-lg text-left transition-all ${assignedRole === key
-                                                        ? 'bg-purple-500/30 border border-purple-500/50'
-                                                        : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                                    ? 'bg-purple-500/30 border border-purple-500/50'
+                                                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
                                                     }`}
                                             >
                                                 <span className="text-sm">{role.emoji}</span>
@@ -323,8 +319,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                         key={opt.value}
                                         onClick={() => setDuration(opt.value)}
                                         className={`p-3 rounded-xl transition-all ${duration === opt.value
-                                                ? 'bg-purple-500/30 border border-purple-500/50'
-                                                : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                            ? 'bg-purple-500/30 border border-purple-500/50'
+                                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
                                             }`}
                                     >
                                         <p className="font-black text-white">{opt.label}</p>
