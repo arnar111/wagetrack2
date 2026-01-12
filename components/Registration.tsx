@@ -551,16 +551,28 @@ const Registration: React.FC<RegistrationProps> = ({
                     </div>
                 </div>
 
-                {dailyBounties && dailyBounties.length > 0 && (
-                    <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
-                )}
+                {/* METRICS - First priority */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="glass p-4 rounded-2xl border-indigo-500/10">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Heildarsala</p>
+                        <p className="text-xl font-black text-white"><NumberTicker value={totalSalesToday} /></p>
+                    </div>
+                    <div className="glass p-4 rounded-2xl border-amber-500/10">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Meðalsala</p>
+                        <p className="text-xl font-black text-amber-400"><NumberTicker value={todaySales.length > 0 ? Math.round(totalSalesToday / todaySales.length) : 0} /></p>
+                    </div>
+                    <div className="glass p-4 rounded-2xl border-emerald-500/10">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Meðal/klst</p>
+                        <p className="text-xl font-black text-emerald-400"><NumberTicker value={displayedAverage} /></p>
+                    </div>
+                    <div className="glass p-4 rounded-2xl border-violet-500/10">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Fjöldi</p>
+                        <p className="text-xl font-black text-violet-400">{todaySales.length}</p>
+                    </div>
+                </div>
 
-                {/* Render Wingman */}
-                {isShiftActive && renderWingman()}
-
-                <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
-
-                <div className={`glass p-6 rounded-[32px] border-indigo-500/20 shadow-2xl relative overflow-hidden ${currentStreak > 3 ? 'border-amber-500/50 shadow-amber-500/20' : ''}`}>
+                {/* SALES REGISTRATION CARD - Second priority */}
+                <div className={`glass p-6 rounded-[32px] border-indigo-500/20 shadow-2xl relative overflow-hidden mb-6 ${currentStreak > 3 ? 'border-amber-500/50 shadow-amber-500/20' : ''}`}>
                     <div className="flex gap-2 overflow-x-auto pb-4 mb-4 custom-scrollbar">
                         {PROJECTS.map(p => (
                             <button key={p} onClick={() => setSaleData({ ...saleData, project: p })} className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${saleData.project === p ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-slate-500'}`}>
@@ -605,6 +617,15 @@ const Registration: React.FC<RegistrationProps> = ({
                         Staðfesta Sölu
                     </button>
                 </div>
+
+                {/* BOUNTIES, LEVEL, WINGMAN - After sales card */}
+                {dailyBounties && dailyBounties.length > 0 && (
+                    <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
+                )}
+
+                {isShiftActive && renderWingman()}
+
+                <LevelProgress currentLevel={currentLevel} nextLevel={nextLevel} currentAmount={totalSalesToday} />
 
                 <div className="space-y-3">
                     <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest ml-2">Nýlegt</h4>
