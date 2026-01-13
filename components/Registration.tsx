@@ -224,7 +224,9 @@ const Registration: React.FC<RegistrationProps> = ({
     const displayedAverage = (isShiftActive && activeDuration > 0.25) ? currentSpeed : historicalAvgSpeed;
     const paidDuration = liveHours.day + liveHours.evening;
     const hoursRemaining = Math.max(0, avgShiftLength - paidDuration);
-    const projectionSpeed = (isShiftActive && activeDuration > 0.25 && currentSpeed > 0) ? currentSpeed : historicalAvgSpeed;
+    // Use paidDuration for projection speed since breaks are paid time
+    const paidSpeed = paidDuration > 0.25 ? totalSalesToday / paidDuration : historicalAvgSpeed;
+    const projectionSpeed = (isShiftActive && paidDuration > 0.25 && paidSpeed > 0) ? paidSpeed : historicalAvgSpeed;
     const rawProjection = totalSalesToday + (projectionSpeed * hoursRemaining);
     const projectedFinal = Math.round(rawProjection / 100) * 100;
 
