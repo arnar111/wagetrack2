@@ -973,8 +973,31 @@ const Registration: React.FC<RegistrationProps> = ({
                             ))}
                         </div>
                         <form onSubmit={handleAddSale} className="relative max-w-2xl mx-auto">
-                            <input type="number" required placeholder="0 kr." value={saleData.amount || ''} onChange={e => setSaleData({ ...saleData, amount: parseInt(e.target.value) || 0 })} className="w-full bg-white/5 border border-white/10 p-8 rounded-[32px] text-5xl font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 pr-40 text-center placeholder:text-white/10" />
-                            <button type="submit" className="absolute right-4 top-4 bottom-4 px-8 gradient-bg rounded-[24px] text-white font-black uppercase text-sm shadow-xl hover:scale-105 transition-all active:scale-95">Bæta við</button>
+                            <div className="flex items-center gap-4">
+                                {/* Minus Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setSaleData({ ...saleData, amount: Math.max(0, saleData.amount - 500) })}
+                                    className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/10 flex-shrink-0"
+                                >
+                                    <Minus size={24} />
+                                </button>
+
+                                {/* Input Field */}
+                                <div className="flex-1 relative">
+                                    <input type="number" required placeholder="0 kr." value={saleData.amount || ''} onChange={e => setSaleData({ ...saleData, amount: parseInt(e.target.value) || 0 })} className="w-full bg-white/5 border border-white/10 p-8 rounded-[32px] text-5xl font-black text-white outline-none focus:ring-4 focus:ring-indigo-500/20 text-center placeholder:text-white/10" />
+                                </div>
+
+                                {/* Plus Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setSaleData({ ...saleData, amount: saleData.amount + 500 })}
+                                    className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/10 flex-shrink-0"
+                                >
+                                    <Plus size={24} />
+                                </button>
+                            </div>
+                            <button type="submit" className="w-full mt-4 py-4 gradient-bg rounded-[24px] text-white font-black uppercase text-sm shadow-xl hover:scale-[1.02] transition-all active:scale-95">Bæta við</button>
                         </form>
                     </div>
 
