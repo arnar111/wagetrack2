@@ -119,6 +119,13 @@ const App: React.FC = () => {
   const [dailyBounties, setDailyBounties] = useState<{ task: string, reward: string }[]>([]);
   const [spectatingBattle, setSpectatingBattle] = useState<any>(null);
 
+  // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
+  const [persistedSaleType, setPersistedSaleType] = useState<'new' | 'upgrade'>('new');
+  const [persistedSaleData, setPersistedSaleData] = useState({ amount: 0, project: 'Einstaklingur' });
+  const [persistedBreakMinutes, setPersistedBreakMinutes] = useState(0);
+  const [persistedBreakEndTime, setPersistedBreakEndTime] = useState<Date | null>(null);
+  const [persistedOfChecked, setPersistedOfChecked] = useState(false);
+
   // New feature hooks
   const { currentStreak, isActive: streakIsActive } = useStreaks(user?.staffId, sales);
   const { playSound } = useSounds();
@@ -444,6 +451,17 @@ const App: React.FC = () => {
                 autoPausesEnabled={autoPausesEnabled}
                 user={user}
                 activeBattle={activeBattleWithScores}
+                // Persisted state props
+                persistedSaleType={persistedSaleType}
+                onSaleTypeChange={setPersistedSaleType}
+                persistedSaleData={persistedSaleData}
+                onSaleDataChange={setPersistedSaleData}
+                persistedBreakMinutes={persistedBreakMinutes}
+                onBreakMinutesChange={setPersistedBreakMinutes}
+                persistedBreakEndTime={persistedBreakEndTime}
+                onBreakEndTimeChange={setPersistedBreakEndTime}
+                persistedOfChecked={persistedOfChecked}
+                onOfCheckedChange={setPersistedOfChecked}
               />
             )}
             {activeTab === 'insights' && <ProjectInsights sales={sales} shifts={shifts} />}

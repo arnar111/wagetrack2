@@ -62,11 +62,24 @@ interface RegistrationProps {
     clockInTime: Date | null;
     onClockIn: (goal: number) => void;
     onClockOut: (shiftData: any) => void;
+
+    // Persisted State Props (survives tab switching)
+    persistedSaleType: 'new' | 'upgrade';
+    onSaleTypeChange: (type: 'new' | 'upgrade') => void;
+    persistedSaleData: { amount: number; project: string };
+    onSaleDataChange: (data: { amount: number; project: string }) => void;
+    persistedBreakMinutes: number;
+    onBreakMinutesChange: (mins: number) => void;
+    persistedBreakEndTime: Date | null;
+    onBreakEndTimeChange: (time: Date | null) => void;
+    persistedOfChecked: boolean;
+    onOfCheckedChange: (checked: boolean) => void;
 }
 
 const Registration: React.FC<RegistrationProps> = ({
     onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, coachPersonality = "standard",
-    isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle
+    isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle,
+    persistedSaleType, onSaleTypeChange, persistedSaleData, onSaleDataChange, persistedBreakMinutes, onBreakMinutesChange, persistedBreakEndTime, onBreakEndTimeChange, persistedOfChecked, onOfCheckedChange
 }) => {
     const [now, setNow] = useState(new Date());
     const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'info' } | null>(null);
@@ -97,20 +110,22 @@ const Registration: React.FC<RegistrationProps> = ({
     const [liveHours, setLiveHours] = useState({ day: 0, evening: 0 });
     const [activeHours, setActiveHours] = useState({ day: 0, evening: 0 });
 
-    // --- Break State ---
-    const [breakMinutes, setBreakMinutes] = useState(0);
-    const [breakEndTime, setBreakEndTime] = useState<Date | null>(null);
+    // --- Break State (persisted from App.tsx) ---
+    const breakMinutes = persistedBreakMinutes;
+    const setBreakMinutes = onBreakMinutesChange;
+    const breakEndTime = persistedBreakEndTime;
+    const setBreakEndTime = onBreakEndTimeChange;
     const [breakTimeLeft, setBreakTimeLeft] = useState<string>("");
 
-    // New Sale State
-    const [saleType, setSaleType] = useState<'new' | 'upgrade'>('new');
-    const [saleData, setSaleData] = useState({
-        amount: 0,
-        project: PROJECTS[0]
-    });
+    // New Sale State (persisted from App.tsx)
+    const saleType = persistedSaleType;
+    const setSaleType = onSaleTypeChange;
+    const saleData = persistedSaleData;
+    const setSaleData = onSaleDataChange;
 
-    // --- OF Check State ---
-    const [ofChecked, setOfChecked] = useState(false);
+    // --- OF Check State (persisted from App.tsx) ---
+    const ofChecked = persistedOfChecked;
+    const setOfChecked = onOfCheckedChange;
 
     // Daily Summary Modal State
     const [showDailySummary, setShowDailySummary] = useState(false);
@@ -355,7 +370,7 @@ const Registration: React.FC<RegistrationProps> = ({
     };
 
     const addBreak = (minutes: number) => {
-        setBreakMinutes(prev => prev + minutes);
+        setBreakMinutes(breakMinutes + minutes);
         const end = new Date(new Date().getTime() + minutes * 60 * 1000);
         setBreakEndTime(end);
         setNotification({ msg: `Skráð ${minutes} mín pása.`, type: 'info' });
@@ -630,14 +645,14 @@ const Registration: React.FC<RegistrationProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between mb-8">
-                        <button onClick={() => setSaleData(d => ({ ...d, amount: Math.max(0, d.amount - 500) }))} className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
+                        <button onClick={() => setSaleData({ ...saleData, amount: Math.max(0, saleData.amount - 500) })} className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
                             <Minus size={24} />
                         </button>
                         <div className="text-center">
                             <span className="text-4xl font-black text-white tracking-tighter">{saleData.amount}</span>
                             <span className="text-xs font-bold text-slate-500 block uppercase">Krónur</span>
                         </div>
-                        <button onClick={() => setSaleData(d => ({ ...d, amount: d.amount + 500 }))} className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
+                        <button onClick={() => setSaleData({ ...saleData, amount: saleData.amount + 500 })} className="w-16 h-16 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white active:scale-90 transition-all border border-white/5">
                             <Plus size={24} />
                         </button>
                     </div>
