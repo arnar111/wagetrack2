@@ -80,7 +80,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const metrics = useMemo(() => {
         const currentTotal = summary.totalSales;
-        const completedShifts = periodShifts.length;
+        // Filter out sick days from shift count for average calculation
+        const workShifts = periodShifts.filter(s => s.projectName !== 'Veikindi');
+        const completedShifts = workShifts.length;
         const effectiveShiftCount = completedShifts + (isShiftActive ? 1 : 0);
         const avgPerShift = effectiveShiftCount > 0 ? currentTotal / effectiveShiftCount : 0;
         const projected = avgPerShift * 20;
