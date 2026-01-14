@@ -147,6 +147,50 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // --- AUTO-LOGOUT BY LOCATION ---
+  useEffect(() => {
+    if (!user || !isShiftActive || !clockInTime) return;
+
+    const closingHours: { [key: string]: number } = {
+      'Hringurinn': 19, // 7pm
+      'Verið': 21,      // 9pm
+      'Götuteymið': 23  // 11pm (default late)
+    };
+
+    const checkAutoLogout = async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const closingHour = closingHours[user.team] || 23;
+
+      if (currentHour >= closingHour) {
+        console.log(`⏰ Auto-logout triggered for ${user.team} at ${currentHour}:00 (closes at ${closingHour}:00)`);
+        showToast(`Sjálfvirk útskráning - ${user.team} lokar kl. ${closingHour}:00`, 'info');
+
+        // Trigger clock out with proper shift data
+        const startTime = new Date(clockInTime);
+        const shiftDateStr = startTime.toISOString().split('T')[0];
+        const shiftSales = sales.filter(s => s.date === shiftDateStr);
+        const totalShiftSales = shiftSales.reduce((acc, s) => acc + s.amount, 0);
+
+        await handleClockOut({
+          id: Math.random().toString(36).substr(2, 9),
+          date: shiftDateStr,
+          dayHours: 0, // Will be calculated by hook
+          eveningHours: 0,
+          totalSales: totalShiftSales,
+          notes: 'Sjálfvirk útskráning',
+          projectName: 'Other',
+          userId: ''
+        }, user.staffId);
+      }
+    };
+
+    // Check immediately and then every minute
+    checkAutoLogout();
+    const interval = setInterval(checkAutoLogout, 60000);
+    return () => clearInterval(interval);
+  }, [user, isShiftActive, clockInTime, sales, handleClockOut, showToast]);
+
   // --- DEMO BATTLE FOR USER 123 ---
   const [demoBattleState, setDemoBattleState] = useState<'winning' | 'tied' | 'losing'>('winning');
   const [demoBotScore, setDemoBotScore] = useState(15000);
@@ -384,6 +428,8 @@ const App: React.FC = () => {
                 onSaveSale={async (s) => await addDoc(collection(db, "sales"), { ...s, userId: user.staffId })}
                 onDeleteSale={async (id) => await deleteDoc(doc(db, "sales", id))}
                 onUpdateSale={async (s) => await setDoc(doc(db, "sales", s.id), s, { merge: true })}
+                onUpdateShift={async (s) => { await setDoc(doc(db, "shifts", s.id), s, { merge: true }); }}
+                onClearEditingShift={() => setEditingShift(null)}
                 currentSales={sales}
                 shifts={shifts}
                 editingShift={editingShift}

@@ -41,6 +41,8 @@ interface RegistrationProps {
     currentSales: Sale[];
     shifts: Shift[];
     editingShift: Shift | null;
+    onUpdateShift?: (shift: Shift) => void;
+    onClearEditingShift?: () => void;
     goals: Goals;
     onUpdateGoals: (g: Goals) => void;
     userRole: string;
@@ -63,7 +65,7 @@ interface RegistrationProps {
 }
 
 const Registration: React.FC<RegistrationProps> = ({
-    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, coachPersonality = "standard",
+    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, coachPersonality = "standard",
     isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle
 }) => {
     const [now, setNow] = useState(new Date());
@@ -84,6 +86,12 @@ const Registration: React.FC<RegistrationProps> = ({
     const [editAmount, setEditAmount] = useState(0);
     const [editProject, setEditProject] = useState(PROJECTS[0]);
     const [editType, setEditType] = useState<'new' | 'upgrade'>('new');
+
+    // Editing Shift State
+    const [editShiftDayHours, setEditShiftDayHours] = useState(0);
+    const [editShiftEveningHours, setEditShiftEveningHours] = useState(0);
+    const [editShiftTotalSales, setEditShiftTotalSales] = useState(0);
+    const [editShiftNotes, setEditShiftNotes] = useState('');
 
     // Live Hours State
     const [liveHours, setLiveHours] = useState({ day: 0, evening: 0 });
@@ -145,6 +153,16 @@ const Registration: React.FC<RegistrationProps> = ({
             setEditType(editingSale.saleType || 'new');
         }
     }, [editingSale]);
+
+    // Initialize shift edit form when editingShift changes
+    useEffect(() => {
+        if (editingShift) {
+            setEditShiftDayHours(editingShift.dayHours);
+            setEditShiftEveningHours(editingShift.eveningHours);
+            setEditShiftTotalSales(editingShift.totalSales);
+            setEditShiftNotes(editingShift.notes || '');
+        }
+    }, [editingShift]);
 
     // --- Live Timer ---
     useEffect(() => {
@@ -297,13 +315,18 @@ const Registration: React.FC<RegistrationProps> = ({
         const startTime = getRoundedTime(clockInTime);
         const finalHours = calculateShiftSplit(startTime, endTime, 0);
         const hoursWorked = liveHours.day + liveHours.evening;
-        const avgPerSale = todaySales.length > 0 ? totalSalesToday / todaySales.length : 0;
+
+        // Use shift start date for sales calculation (fixes next-day logout bug)
+        const shiftDateStr = startTime.toISOString().split('T')[0];
+        const shiftSales = currentSales.filter(s => s.date === shiftDateStr);
+        const totalShiftSales = shiftSales.reduce((acc, s) => acc + s.amount, 0);
+        const avgPerSale = shiftSales.length > 0 ? totalShiftSales / shiftSales.length : 0;
 
         setDailySummaryData({
-            totalSales: totalSalesToday,
-            numberOfSales: todaySales.length,
+            totalSales: totalShiftSales,
+            numberOfSales: shiftSales.length,
             avgPerSale: avgPerSale,
-            avgPerHour: hoursWorked > 0 ? totalSalesToday / hoursWorked : 0,
+            avgPerHour: hoursWorked > 0 ? totalShiftSales / hoursWorked : 0,
             hoursWorked: hoursWorked,
             goal: goals.daily,
             level: currentLevel.title,
@@ -313,10 +336,10 @@ const Registration: React.FC<RegistrationProps> = ({
 
         onClockOut({
             id: Math.random().toString(36).substr(2, 9),
-            date: startTime.toISOString().split('T')[0],
+            date: shiftDateStr,
             dayHours: parseFloat(finalHours.day.toFixed(2)),
             eveningHours: parseFloat(finalHours.evening.toFixed(2)),
-            totalSales: totalSalesToday,
+            totalSales: totalShiftSales,
             notes: '',
             projectName: 'Other',
             userId: ''
@@ -388,6 +411,20 @@ const Registration: React.FC<RegistrationProps> = ({
         if (confirm("Ertu viss um að þú viljir eyða þessari færslu?")) {
             onDeleteSale(id);
             setNotification({ msg: "Færslu eytt.", type: 'info' });
+        }
+    };
+
+    const handleUpdateShift = () => {
+        if (editingShift && onUpdateShift) {
+            onUpdateShift({
+                ...editingShift,
+                dayHours: editShiftDayHours,
+                eveningHours: editShiftEveningHours,
+                totalSales: editShiftTotalSales,
+                notes: editShiftNotes
+            });
+            onClearEditingShift?.();
+            setNotification({ msg: "Vakt uppfærð!", type: 'success' });
         }
     };
 
@@ -763,6 +800,79 @@ const Registration: React.FC<RegistrationProps> = ({
                                 <input type="number" value={editAmount} onChange={(e) => setEditAmount(parseInt(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-2xl font-black text-white outline-none focus:ring-2 focus:ring-indigo-500" />
                             </div>
                             <button onClick={handleUpdate} className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 rounded-2xl text-white font-black uppercase text-sm shadow-xl transition-all active:scale-95 mt-4">Uppfæra</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Shift Editing Modal */}
+            {editingShift && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="glass p-8 rounded-[40px] w-full max-w-md border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.2)] relative">
+                        <button onClick={() => onClearEditingShift?.()} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
+
+                        <div className="mb-6 flex justify-center">
+                            <div className="p-4 rounded-full bg-amber-500/20 text-amber-400">
+                                <Edit2 size={32} />
+                            </div>
+                        </div>
+
+                        <h3 className="text-2xl font-black text-white italic tracking-tighter mb-2 text-center">Breyta Vakt</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6 text-center">
+                            {new Date(editingShift.date).toLocaleDateString('is-IS', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </p>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Dagvinna (klst)</label>
+                                    <input
+                                        type="number"
+                                        step="0.25"
+                                        value={editShiftDayHours}
+                                        onChange={(e) => setEditShiftDayHours(parseFloat(e.target.value) || 0)}
+                                        className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xl font-black text-white outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Eftirvinna (klst)</label>
+                                    <input
+                                        type="number"
+                                        step="0.25"
+                                        value={editShiftEveningHours}
+                                        onChange={(e) => setEditShiftEveningHours(parseFloat(e.target.value) || 0)}
+                                        className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xl font-black text-white outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Heildarsala (ISK)</label>
+                                <input
+                                    type="number"
+                                    value={editShiftTotalSales}
+                                    onChange={(e) => setEditShiftTotalSales(parseInt(e.target.value) || 0)}
+                                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-2xl font-black text-white outline-none focus:ring-2 focus:ring-amber-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Athugasemdir</label>
+                                <textarea
+                                    value={editShiftNotes}
+                                    onChange={(e) => setEditShiftNotes(e.target.value)}
+                                    rows={2}
+                                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-sm font-medium text-white outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                                    placeholder="Athugasemdir um vaktina..."
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleUpdateShift}
+                                className="w-full py-4 bg-amber-500 hover:bg-amber-600 rounded-2xl text-slate-900 font-black uppercase text-sm shadow-xl transition-all active:scale-95 mt-4"
+                            >
+                                Vista Breytingar
+                            </button>
                         </div>
                     </div>
                 </div>
