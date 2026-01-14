@@ -84,7 +84,7 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userNam
 
     const periodShifts = shifts.filter(s => {
       const d = new Date(s.date);
-      return d >= activePeriod.start && d <= activePeriod.end && s.projectName !== 'Veikindi';
+      return d >= activePeriod.start && d <= activePeriod.end;
     });
 
     const periodSalesList = sales.filter(s => {
@@ -137,10 +137,14 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userNam
     const totalDeductions = pensionFund + unionFee + finalTax;
     const netPay = totalGross - totalDeductions;
 
-    // Averages for projection
-    const avgSalesPerShift = shiftCount > 0 ? periodTotalSales / shiftCount : 0;
-    const avgHoursPerShiftCalc = shiftCount > 0 ? totalHours / shiftCount : 6;
-    const dayEveningRatio = totalHours > 0 ? totalDayHours / totalHours : 0.6;
+    // Averages for projection - exclude sick days from averages (not from payroll)
+    const workShifts = periodShifts.filter(s => s.projectName !== 'Veikindi');
+    const workShiftCount = workShifts.length;
+    const workHours = workShifts.reduce((acc, s) => acc + s.dayHours + s.eveningHours, 0);
+    const workDayHours = workShifts.reduce((acc, s) => acc + s.dayHours, 0);
+    const avgSalesPerShift = workShiftCount > 0 ? periodTotalSales / workShiftCount : 0;
+    const avgHoursPerShiftCalc = workShiftCount > 0 ? workHours / workShiftCount : 6;
+    const dayEveningRatio = workHours > 0 ? workDayHours / workHours : 0.6;
 
     return {
       dayHours: totalDayHours,
