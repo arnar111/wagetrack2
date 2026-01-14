@@ -79,22 +79,26 @@ const Dashboard: React.FC<DashboardProps> = ({
     const formatISK = (val: number) => new Intl.NumberFormat('is-IS', { maximumFractionDigits: 0 }).format(val);
 
     const metrics = useMemo(() => {
-        const currentTotal = summary.totalSales;
+        // Calculate total sales from period shifts (not from summary)
+        const periodTotalSales = periodShifts.reduce((acc, s) => acc + (s.totalSales || 0), 0);
+
         // Filter out sick days from shift count for average calculation
         const workShifts = periodShifts.filter(s => s.projectName !== 'Veikindi');
         const completedShifts = workShifts.length;
         const effectiveShiftCount = completedShifts + (isShiftActive ? 1 : 0);
-        const avgPerShift = effectiveShiftCount > 0 ? currentTotal / effectiveShiftCount : 0;
+
+        // Meðaltal/vakt = Total collected this month / Number of work shifts
+        const avgPerShift = effectiveShiftCount > 0 ? periodTotalSales / effectiveShiftCount : 0;
         const projected = avgPerShift * 20;
 
         return {
-            total: currentTotal,
+            total: periodTotalSales,
             count: effectiveShiftCount,
             average: avgPerShift,
             projected,
-            progress: Math.min(100, (currentTotal / goals.monthly) * 100)
+            progress: Math.min(100, (periodTotalSales / goals.monthly) * 100)
         };
-    }, [summary, periodShifts, isShiftActive, goals.monthly]);
+    }, [periodShifts, isShiftActive, goals.monthly]);
 
     const chartData = useMemo(() => {
         const salesByDate: Record<string, number> = {};
