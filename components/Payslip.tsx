@@ -448,6 +448,26 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userNam
             <p className="text-[10px] text-slate-500 text-center">
               Söluhraði: {formatISK(projection.salesPace)} á vakt
             </p>
+
+            {/* Personal Allowance Slider */}
+            <div className="p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Percent size={14} className="text-indigo-400" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nýting persónuafsláttar</span>
+                </div>
+                <span className="text-xs font-black text-indigo-400">{Math.round((settings.allowanceUsage || 0) * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={settings.allowanceUsage || 0}
+                onChange={(e) => onUpdateSettings({ ...settings, allowanceUsage: parseFloat(e.target.value) })}
+                className="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
           </div>
 
           {/* Projected Breakdown */}
