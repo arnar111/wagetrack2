@@ -6,6 +6,7 @@ import { getRoundedTime, calculateShiftSplit } from '../utils/time.ts';
 // Static Import for stability
 import { getWingmanMessage } from '../geminiService.ts';
 import BountyCard from './gamification/BountyCard.tsx';
+import { Bounty } from '../utils/bounties.ts';
 import LevelProgress from './gamification/LevelProgress.tsx';
 import NumberTicker from './NumberTicker.tsx';
 import DailySummaryModal from './DailySummaryModal.tsx';
@@ -47,7 +48,10 @@ interface RegistrationProps {
     onUpdateGoals: (g: Goals) => void;
     userRole: string;
     userId: string;
-    dailyBounties?: { task: string, reward: string }[];
+    dailyBounties?: Bounty[];
+    claimedBountyIds?: string[];
+    onClaimBounty?: (bountyId: string, coins: number) => void;
+    onReplaceBounty?: (oldBountyId: string, newBounty: Bounty) => void;
     coachPersonality?: string;
 
     // --- New Props from App.tsx ---
@@ -77,7 +81,7 @@ interface RegistrationProps {
 }
 
 const Registration: React.FC<RegistrationProps> = ({
-    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, coachPersonality = "standard",
+    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, claimedBountyIds, onClaimBounty, onReplaceBounty, coachPersonality = "standard",
     isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle,
     persistedSaleType, onSaleTypeChange, persistedSaleData, onSaleDataChange, persistedBreakMinutes, onBreakMinutesChange, persistedBreakEndTime, onBreakEndTimeChange, persistedOfChecked, onOfCheckedChange
 }) => {
@@ -280,18 +284,33 @@ const Registration: React.FC<RegistrationProps> = ({
     const nextLevel = LEVELS.find(l => l.id === currentLevel.id + 1);
     const distToNextLevel = nextLevel ? nextLevel.min - totalSalesToday : 0;
 
-    const completedBountyIndices = useMemo(() => {
+    // --- Bounty completion detection ---
+    const upgradesCount = useMemo(() => todaySales.filter(s => s.saleType === 'upgrade').length, [todaySales]);
+
+    const completedBountyIds = useMemo(() => {
         if (!dailyBounties) return [];
-        return dailyBounties.map((b, i) => {
-            if (b.task.includes("30.000") && totalSalesToday >= 30000) return i;
-            if (b.task.includes("Nýir") && newSalesCount >= 3) return i;
-            if (b.task.includes(" röð") && newSalesCount >= 3) return i;
-            if (b.task.includes("5.000") && todaySales.some(s => s.amount >= 5000)) return i;
-            if (b.task.includes("25.000") && totalSalesToday >= 25000) return i;
-            if (b.task.includes("Tvær sölur") && todaySales.length >= 2) return i;
-            return -1;
-        }).filter(i => i !== -1);
-    }, [dailyBounties, totalSalesToday, newSalesCount, todaySales]);
+
+        const hourlyRate = activeDuration > 0 ? totalSalesToday / activeDuration : 0;
+
+        return dailyBounties.filter(b => {
+            switch (b.checkType) {
+                case 'sales_amount':
+                    return totalSalesToday >= b.threshold;
+                case 'sales_count':
+                    return todaySales.length >= b.threshold;
+                case 'new_sales_count':
+                    return newSalesCount >= b.threshold;
+                case 'upgrade_count':
+                    return upgradesCount >= b.threshold;
+                case 'single_sale':
+                    return todaySales.some(s => s.amount >= b.threshold);
+                case 'hourly_rate':
+                    return hourlyRate >= b.threshold;
+                default:
+                    return false;
+            }
+        }).map(b => b.id);
+    }, [dailyBounties, totalSalesToday, todaySales, newSalesCount, upgradesCount, activeDuration]);
 
     // --- Actions ---
     const handleClockClick = () => {
@@ -349,7 +368,7 @@ const Registration: React.FC<RegistrationProps> = ({
             goal: goals.daily,
             level: currentLevel.title,
             badgesEarned: [],
-            bountiesCompleted: completedBountyIndices.length
+            bountiesCompleted: claimedBountyIds?.length || 0
         });
 
         onClockOut({
@@ -676,8 +695,13 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
 
                 {/* BOUNTIES, LEVEL, WINGMAN - After sales card */}
-                {dailyBounties && dailyBounties.length > 0 && (
-                    <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
+                {dailyBounties && dailyBounties.length > 0 && onClaimBounty && onReplaceBounty && (
+                    <BountyCard
+                        bounties={dailyBounties}
+                        completedIds={completedBountyIds}
+                        onClaimBounty={onClaimBounty}
+                        onReplaceBounty={onReplaceBounty}
+                    />
                 )}
 
                 {isShiftActive && renderWingman()}
@@ -1031,8 +1055,13 @@ const Registration: React.FC<RegistrationProps> = ({
                 </div>
 
                 <div className="flex flex-col gap-6 lg:col-span-1 h-full">
-                    {dailyBounties && dailyBounties.length > 0 && (
-                        <BountyCard bounties={dailyBounties} completedIndices={completedBountyIndices} />
+                    {dailyBounties && dailyBounties.length > 0 && onClaimBounty && onReplaceBounty && (
+                        <BountyCard
+                            bounties={dailyBounties}
+                            completedIds={completedBountyIds}
+                            onClaimBounty={onClaimBounty}
+                            onReplaceBounty={onReplaceBounty}
+                        />
                     )}
 
                     {/* Render Active Battle Card */}

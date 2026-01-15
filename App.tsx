@@ -33,6 +33,7 @@ import {
 import { doc, setDoc, addDoc, deleteDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
+import { Bounty, getDailyBounties } from './utils/bounties.ts';
 
 // Components
 import Dashboard from './components/Dashboard.tsx';
@@ -116,7 +117,6 @@ const App: React.FC = () => {
   const [editingShift, setEditingShift] = useState<any>(null);
   const [logoError, setLogoError] = useState(false);
   const [aiInsights, setAiInsights] = useState<string>('');
-  const [dailyBounties, setDailyBounties] = useState<{ task: string, reward: string }[]>([]);
   const [spectatingBattle, setSpectatingBattle] = useState<any>(null);
 
   // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
@@ -131,18 +131,27 @@ const App: React.FC = () => {
   const { playSound } = useSounds();
   const { isOnline, pendingCount, queueSale, syncQueue } = useOfflineQueue();
 
-  // Initialize daily bounties
+  // --- BOUNTY SYSTEM ---
+  const [dailyBounties, setDailyBounties] = useState<Bounty[]>([]);
+  const [claimedBountyIds, setClaimedBountyIds] = useState<string[]>([]);
+
+  // Initialize daily bounties from new system
   useEffect(() => {
-    const bounties = [
-      { task: "Safnaðu 5.000 kr þennan klukkutímann", reward: "⚡ Power Hour" },
-      { task: "Tvær sölur á næstu 60 mínútum", reward: "🔥 Hot Streak" },
-      { task: "Náðu 25.000 kr fyrir lok vaktar", reward: "🏆 Daily Goal Hero" },
-      { task: "Seldu fyrir yfir 30.000 kr í dag", reward: "💎 High Roller" },
-      { task: "3 'Nýir' sölur í röð", reward: "🎲 Hat Trick" },
-      { task: "Fylltu hringinn fyrir pásu", reward: "⭕ Circle K" }
-    ];
-    const shuffled = bounties.sort(() => 0.5 - Math.random());
-    setDailyBounties(shuffled.slice(0, 3));
+    const bounties = getDailyBounties(3);
+    setDailyBounties(bounties);
+    setClaimedBountyIds([]);
+  }, []);
+
+  // Bounty claim handler - shows toast with coins
+  const handleClaimBounty = useCallback((bountyId: string, coins: number) => {
+    setClaimedBountyIds(prev => [...prev, bountyId]);
+    showToast(`+${coins} mynt! 🪙`, 'success');
+    playSound('coin');
+  }, [showToast, playSound]);
+
+  // Bounty replacement handler
+  const handleReplaceBounty = useCallback((oldId: string, newBounty: Bounty) => {
+    setDailyBounties(prev => prev.map(b => b.id === oldId ? newBounty : b));
   }, []);
 
   // Handle sidebar resize
@@ -445,6 +454,9 @@ const App: React.FC = () => {
                 userRole={user.role}
                 userId={user.staffId}
                 dailyBounties={dailyBounties}
+                claimedBountyIds={claimedBountyIds}
+                onClaimBounty={handleClaimBounty}
+                onReplaceBounty={handleReplaceBounty}
                 coachPersonality={coachPersonality}
                 onTabChange={setActiveTab}
                 requireOFCheck={requireOFCheck}
