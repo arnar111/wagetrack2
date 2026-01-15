@@ -158,7 +158,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Only initialize if we don't have bounties yet
     if (dailyBounties.length === 0) {
-      const bounties = getDailyBounties(3, bountyStats);
+      const bounties = getDailyBounties(5, bountyStats);
       setDailyBounties(bounties);
       setClaimedBountyIds([]);
     }
@@ -509,6 +509,7 @@ const App: React.FC = () => {
                 shifts={shifts}
                 battles={battles}
                 user={user}
+                claimedBountyIds={claimedBountyIds}
               />
             )}
 
