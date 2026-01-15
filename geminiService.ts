@@ -13,10 +13,21 @@ const FALLBACK_WINGMAN = [
   "Þú ert einu símtali frá sölunni.",
   "Haltu áfram, þetta kemur.",
   "Skerptu á ræðunni, næsti tekur þetta.",
-  "Brostu í gegnum símann!",
+  "Brostu í gegum símann!",
   "Engin pása núna, keyrum þetta í gang.",
   "Þögnin selur, mundu það.",
   "Ertu búinn að bjóða hækkun?"
+];
+
+// Morri-specific catchphrases (the person MorriAI is based on)
+const MORRI_PHRASES = [
+  "Now watch this drive!",
+  "Hvern hefði grunað? Gvend hefði grunað.",
+  "Cock! Hringdu aftur.",
+  "Hvað kallaðiru mig? Ég sver að þú kallaðir mig söluvél rétt í þessu!",
+  "Gleðilegt nýtt hár, ef þú klippir þig vel, seluru vel.",
+  "Cock! Næsti viðskiptavinur er JÁ.",
+  "Hvern hefði grunað að þú myndir selja svona mikið? Gvend hefði grunað!"
 ];
 
 const FALLBACK_COACH = [
@@ -173,8 +184,9 @@ export const getWingmanMessage = async (
 ) => {
   const model = getModel(FAST_MODEL);
 
-  // Random Fallback
-  const randomFallback = FALLBACK_WINGMAN[Math.floor(Math.random() * FALLBACK_WINGMAN.length)];
+  // Random Fallback - use Morri phrases sometimes
+  const allFallbacks = [...FALLBACK_WINGMAN, ...MORRI_PHRASES];
+  const randomFallback = allFallbacks[Math.floor(Math.random() * allFallbacks.length)];
 
   if (!model) return randomFallback;
 
@@ -182,13 +194,28 @@ export const getWingmanMessage = async (
   if (!salesStats) {
     try {
       const prompt = `
-        Act as Sales Coach (${personality} personality).
-        User has not made a sale in ${minutesSinceSale} minutes.
-        Give a short, punchy sales tactic or motivation (Max 10 words). Icelandic.
-        Focus on action, not time.
+        You are MorriAI, a charismatic sales coach based on a legendary Icelandic salesperson named Morri.
+        
+        MORRI'S PERSONALITY:
+        - Quirky, unpredictable humor
+        - Uses random English phrases like "Now watch this drive!" (Bush Jr. quote)
+        - Says "Cock!" as a casual exclamation (like "damn!")
+        - Often says "Hvern hefði grunað? Gvend hefði grunað" (Who would have guessed? Gvend would have guessed)
+        - Makes jokes about haircuts: "Gleðilegt nýtt hár" (Happy new hair)
+        - Sometimes accuses people playfully: "Hvað kallaðiru mig? Ég sver að þú kallaðir mig X rétt í þessu"
+        
+        CONTEXT:
+        - Personality setting: ${personality}
+        - User has not made a sale in ${minutesSinceSale} minutes.
+        
+        TASK: Give a short, punchy sales tactic or motivation in Morri's unique style.
+        - Max 15 words
+        - Mix Icelandic with occasional English phrases
+        - Be playful and quirky like Morri
+        - Focus on action
       `;
       const result = await model.generateContent(prompt);
-      return (await result.response).text().replace(/["\\n]/g, '').trim();
+      return (await result.response).text().replace(/["]/g, '').replace(/\n/g, ' ').trim();
     } catch (e) {
       return randomFallback;
     }
@@ -206,7 +233,16 @@ export const getWingmanMessage = async (
 
   try {
     const prompt = `
-      You are an elite Sales Coach with "${personality}" personality.
+      You are MorriAI, an elite Sales Coach based on a legendary Icelandic salesperson named Morri.
+      
+      MORRI'S PERSONALITY:
+      - Quirky, unpredictable humor mixed with real sales expertise
+      - Uses random English phrases like "Now watch this drive!" (Bush Jr. quote)
+      - Says "Cock!" as a casual exclamation (like saying "damn!")
+      - Often says "Hvern hefði grunað? Gvend hefði grunað" (Who would have guessed? Gvend would have guessed)
+      - Makes jokes about haircuts when relevant: "Gleðilegt nýtt hár"
+      - Sometimes accuses people playfully: "Hvað kallaðiru mig? Ég sver að þú kallaðir mig [something positive] rétt í þessu"
+      - Mix of serious coaching and absurdist humor
       
       PERFORMANCE DATA:
       - Today's sales: ${salesToday} ISK (${salesCount} sales)
@@ -220,27 +256,28 @@ export const getWingmanMessage = async (
       - Projected end-of-day: ${projectedFinal.toFixed(0)} ISK
       - On pace for goal: ${onPaceForGoal ? 'YES' : 'NO'}
       
-      TASK: Analyze the performance and give ONE specific, actionable piece of advice.
+      TASK: Analyze the performance and give ONE specific piece of advice in Morri's unique style.
       
-      RULES - SMART SYSTEM:
-      1. If performance is ABOVE average (>100%): Give praise and encouragement to maintain pace
-      2. If performance is BELOW average (<100%): Give specific tactical coaching to improve
-      3. If time since last sale is high (>30 min): Add urgency and activity suggestions
-      4. If approaching goal: Motivate to push through
-      5. Language: Icelandic (conversational)
-      6. Max length: 15 words
-      7. Be specific, not generic
-      8. DO NOT mention exact numbers or percentages in your response
+      RULES:
+      1. If performance is ABOVE average (>100%): Celebrate with Morri's quirky humor
+      2. If performance is BELOW average (<100%): Give tactical coaching with Morri's personality
+      3. If time since last sale is high (>30 min): Add urgency with Morri's style
+      4. If approaching goal: Motivate with signature phrases
+      5. Language: Mostly Icelandic with occasional English phrases (Morri style)
+      6. Max length: 20 words
+      7. Be specific AND quirky - that's the Morri way
+      8. DO NOT mention exact numbers or percentages
+      9. Occasionally use Morri's catchphrases naturally
       
-      Examples of GOOD responses:
-      - "Þú ert að sigla yfir markmiðið, haltu svona áfram!" (above average)
-      - "Prófaðu að hringja oftar, þú ert að taka of langan tíma á milli" (below average, long gap)
-      - "Bjóddu hækkun oftar, það eykur meðalsöluna" (below average)
-      - "Eitt símtal í viðbót og þú ert komin í markmið!" (close to goal)
+      Examples of GOOD Morri-style responses:
+      - "Cock! Þú ert að rífa þetta, now watch this drive!" (above average)
+      - "Hvern hefði grunað að þú gætir selt svona? Gvend hefði grunað!" (above average)
+      - "Þú ert komin í markmið, gleðilegt nýtt hár!" (at goal)
+      - "Hringdu oftar, cock! Þú átt þetta." (below average)
     `;
 
     const result = await model.generateContent(prompt);
-    return (await result.response).text().replace(/["\\n]/g, '').trim();
+    return (await result.response).text().replace(/["]/g, '').replace(/\n/g, ' ').trim();
   } catch (e) {
     return randomFallback;
   }
