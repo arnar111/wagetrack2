@@ -346,20 +346,39 @@ const App: React.FC = () => {
     return <Login onLogin={() => { }} />;
   }
 
+  // Sidebar navigation - organized by function
   const navItems = [
-    ...(isManager ? [{ id: 'manager_dash', icon: <BarChart4 size={20} />, label: 'Command Center' }] : []),
-    ...(isManager ? [{ id: 'coaching', icon: <Users size={20} />, label: 'Þjálfun' }] : []),
-    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
-    { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
-    { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
-    { id: 'stats', icon: <BarChart4 size={20} />, label: 'Tölfræði' },
-    { id: 'competitions', icon: <Trophy size={20} />, label: 'The Arena' },
-    { id: 'messages', icon: <MessageSquare size={20} />, label: 'Skilaboð' },
-    { id: 'speech', icon: <Mic2 size={20} />, label: 'MorriAI' },
-    { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
-    { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
-    { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
-    { id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' },
+    // Manager-only section
+    ...(isManager ? [
+      { id: 'manager_dash', icon: <BarChart4 size={20} />, label: '🎖️ Command Center' },
+      { id: 'coaching', icon: <Users size={20} />, label: '👥 Þjálfun' },
+      { id: 'divider1', divider: true },
+    ] : []),
+
+    // Core workflow
+    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: '📊 Mælaborð' },
+    { id: 'register', icon: <Sparkle size={20} />, label: '✨ Skráning' },
+    { id: 'competitions', icon: <Trophy size={20} />, label: '🏆 The Arena' },
+    { id: 'divider2', divider: true },
+
+    // Analytics & Insights (grouped together)
+    { id: 'insights', icon: <PieChart size={20} />, label: '📈 Greining' },
+    { id: 'stats', icon: <BarChart4 size={20} />, label: '📉 Tölfræði' },
+    { id: 'divider3', divider: true },
+
+    // Tools & Communication
+    { id: 'speech', icon: <Mic2 size={20} />, label: '🤖 MorriAI' },
+    { id: 'messages', icon: <MessageSquare size={20} />, label: '💬 Skilaboð' },
+    { id: 'divider4', divider: true },
+
+    // Records
+    { id: 'history', icon: <History size={20} />, label: '📅 Vaktasaga' },
+    { id: 'payslip', icon: <FileText size={20} />, label: '💰 Launaseðill' },
+    { id: 'divider5', divider: true },
+
+    // Settings (always last)
+    { id: 'settings', icon: <Settings size={20} />, label: '⚙️ Stillingar' },
+    ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: '🔐 Admin' }] : []),
   ];
 
   return (
@@ -414,13 +433,17 @@ const App: React.FC = () => {
           <img src="/logo_final.svg" alt="TAKK" className="h-24 w-full mb-3" onError={() => setLogoError(true)} />
           <h1 className="text-[10px] font-black tracking-[0.3em] text-indigo-400 uppercase italic">Takk Arena</h1>
         </div>
-        <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if (window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? 'gradient-bg text-white shadow-lg' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
-              {item.icon}
-              <span className="font-bold text-xs uppercase tracking-wider truncate">{item.label}</span>
-            </button>
-          ))}
+        <nav className="flex-1 mt-6 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {navItems.map((item: any) =>
+            item.divider ? (
+              <div key={item.id} className="h-px bg-white/10 my-3 mx-2" />
+            ) : (
+              <button key={item.id} onClick={() => { setActiveTab(item.id); if (window.innerWidth <= 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'gradient-bg text-white shadow-lg' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+                {item.icon}
+                <span className="font-bold text-xs tracking-wider truncate">{item.label}</span>
+              </button>
+            )
+          )}
         </nav>
         <div className="p-4 border-t border-white/5 space-y-2">
           <div className="px-4 py-2 bg-indigo-500/10 rounded-xl mb-2">
