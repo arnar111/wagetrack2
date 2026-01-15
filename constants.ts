@@ -40,6 +40,6 @@ export const PROJECTS = [
   "Hjálparstarfið",
   "Samtökin '78",
   "Endó samtökin",
-  "Umhyggja"
+  "Umhyggja",
   "Geðhjálp",
 ];
