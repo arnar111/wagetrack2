@@ -350,35 +350,35 @@ const App: React.FC = () => {
   const navItems = [
     // Manager-only section
     ...(isManager ? [
-      { id: 'manager_dash', icon: <BarChart4 size={20} />, label: '🎖️ Command Center' },
-      { id: 'coaching', icon: <Users size={20} />, label: '👥 Þjálfun' },
+      { id: 'manager_dash', icon: <BarChart4 size={20} />, label: 'Command Center' },
+      { id: 'coaching', icon: <Users size={20} />, label: 'Þjálfun' },
       { id: 'divider1', divider: true },
     ] : []),
 
     // Core workflow
-    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: '📊 Mælaborð' },
-    { id: 'register', icon: <Sparkle size={20} />, label: '✨ Skráning' },
-    { id: 'competitions', icon: <Trophy size={20} />, label: '🏆 The Arena' },
+    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Mælaborð' },
+    { id: 'register', icon: <Sparkle size={20} />, label: 'Skráning' },
+    { id: 'competitions', icon: <Trophy size={20} />, label: 'The Arena' },
     { id: 'divider2', divider: true },
 
     // Analytics & Insights (grouped together)
-    { id: 'insights', icon: <PieChart size={20} />, label: '📈 Greining' },
-    { id: 'stats', icon: <BarChart4 size={20} />, label: '📉 Tölfræði' },
+    { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
+    { id: 'stats', icon: <BarChart4 size={20} />, label: 'Tölfræði' },
     { id: 'divider3', divider: true },
 
     // Tools & Communication
-    { id: 'speech', icon: <Mic2 size={20} />, label: '🤖 MorriAI' },
-    { id: 'messages', icon: <MessageSquare size={20} />, label: '💬 Skilaboð' },
+    { id: 'speech', icon: <Mic2 size={20} />, label: 'MorriAI' },
+    { id: 'messages', icon: <MessageSquare size={20} />, label: 'Skilaboð' },
     { id: 'divider4', divider: true },
 
     // Records
-    { id: 'history', icon: <History size={20} />, label: '📅 Vaktasaga' },
-    { id: 'payslip', icon: <FileText size={20} />, label: '💰 Launaseðill' },
+    { id: 'history', icon: <History size={20} />, label: 'Vaktasaga' },
+    { id: 'payslip', icon: <FileText size={20} />, label: 'Launaseðill' },
     { id: 'divider5', divider: true },
 
     // Settings (always last)
-    { id: 'settings', icon: <Settings size={20} />, label: '⚙️ Stillingar' },
-    ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: '🔐 Admin' }] : []),
+    { id: 'settings', icon: <Settings size={20} />, label: 'Stillingar' },
+    ...(isAdmin ? [{ id: 'admin', icon: <ShieldCheck size={20} />, label: 'Admin' }] : []),
   ];
 
   return (
