@@ -27,6 +27,11 @@ export const STORE_ITEMS: StoreItem[] = [
   { id: 'gold_name', title: 'Gullna Nafnið', description: 'Nafnið þitt verður gullitað á listanum.', price: 5000, icon: '✨', effect: 'badge' },
 ];
 
+/**
+ * @deprecated This constant is now managed via Firestore `projects` collection.
+ * Use the `useProjects` hook from `hooks/useProjects.ts` instead.
+ * This array is kept only for seeding and fallback purposes.
+ */
 export const PROJECTS = [
   "Samhjálp",
   "Þroskahjálp",

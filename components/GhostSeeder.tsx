@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { collection, writeBatch, doc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase.ts';
-import { PROJECTS } from '../constants.ts';
+import { useProjects } from '../hooks/useProjects.ts';
 import { Database, Check, Loader2, Trash2 } from 'lucide-react';
 import { User } from '../types';
 
@@ -10,6 +10,7 @@ interface GhostSeederProps {
 }
 
 const GhostSeeder: React.FC<GhostSeederProps> = ({ user }) => {
+    const { projects } = useProjects();
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
     const [status, setStatus] = useState("");
@@ -95,7 +96,7 @@ const GhostSeeder: React.FC<GhostSeederProps> = ({ user }) => {
                         date: shiftDateStr,
                         timestamp: new Date(d.setHours(10 + Math.random() * 7, Math.random() * 59)).toISOString(), // 10:00 - 17:00 spread
                         amount: amount,
-                        project: PROJECTS[Math.floor(Math.random() * PROJECTS.length)],
+                        project: projects.length > 0 ? projects[Math.floor(Math.random() * projects.length)] : 'Other',
                         userId: STAFF_ID,
                         saleType: Math.random() > 0.7 ? 'upgrade' : 'new'
                     });

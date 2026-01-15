@@ -9,6 +9,19 @@ import { PROJECTS } from '../constants';
 
 const MOCK_USERS = ['ghost', 'ghost2', 'ghost3', '1', '2', '3', '4', '5', '6'];
 
+// Helper: Get projects from Firestore or fallback to constants
+async function getProjectsList(): Promise<string[]> {
+    try {
+        const snapshot = await getDocs(collection(db, 'projects'));
+        if (!snapshot.empty) {
+            return snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
+        }
+    } catch (e) {
+        console.warn('Failed to fetch projects from Firestore, using constants');
+    }
+    return [...PROJECTS];
+}
+
 interface SaleConfig {
     userId: string;
     targetAmount: number;
@@ -21,6 +34,7 @@ interface SaleConfig {
  */
 export async function generateMockSales(config: SaleConfig): Promise<void> {
     const { userId, targetAmount, startTime, endTime } = config;
+    const projectsList = await getProjectsList();
 
     // Generate 3-8 individual sales that add up to target
     const numSales = 3 + Math.floor(Math.random() * 6);
@@ -51,7 +65,7 @@ export async function generateMockSales(config: SaleConfig): Promise<void> {
             amount,
             timestamp: timestamp.toISOString(),
             date: timestamp.toISOString().split('T')[0],
-            project: PROJECTS[Math.floor(Math.random() * PROJECTS.length)],
+            project: projectsList[Math.floor(Math.random() * projectsList.length)],
             saleType: Math.random() > 0.7 ? 'upgrade' : 'new'
         });
     }
@@ -125,6 +139,7 @@ export async function initializeBattleSales(battles: any[]): Promise<void> {
  */
 export async function addIncrementalSales(userId: string, amount: number): Promise<void> {
     if (!MOCK_USERS.includes(userId)) return;
+    const projectsList = await getProjectsList();
 
     try {
         await addDoc(collection(db, 'sales'), {
@@ -132,7 +147,7 @@ export async function addIncrementalSales(userId: string, amount: number): Promi
             amount,
             timestamp: new Date().toISOString(),
             date: new Date().toISOString().split('T')[0],
-            project: PROJECTS[Math.floor(Math.random() * PROJECTS.length)],
+            project: projectsList[Math.floor(Math.random() * projectsList.length)],
             saleType: Math.random() > 0.7 ? 'upgrade' : 'new'
         });
     } catch (error) {

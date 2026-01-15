@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Shift, Sale, Goals, Level, User, Battle } from '../types';
-import { PROJECTS } from '../constants';
+import { useProjects } from '../hooks/useProjects.ts';
 import { LEVELS } from '../utils/gamification.ts';
 import { getRoundedTime, calculateShiftSplit } from '../utils/time.ts';
 // Static Import for stability
@@ -81,6 +81,9 @@ const Registration: React.FC<RegistrationProps> = ({
     isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle,
     persistedSaleType, onSaleTypeChange, persistedSaleData, onSaleDataChange, persistedBreakMinutes, onBreakMinutesChange, persistedBreakEndTime, onBreakEndTimeChange, persistedOfChecked, onOfCheckedChange
 }) => {
+    // --- Firestore Projects Hook ---
+    const { projects } = useProjects();
+
     const [now, setNow] = useState(new Date());
     const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'info' } | null>(null);
     const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
@@ -97,7 +100,7 @@ const Registration: React.FC<RegistrationProps> = ({
     // Editing Sale State
     const [editingSale, setEditingSale] = useState<Sale | null>(null);
     const [editAmount, setEditAmount] = useState(0);
-    const [editProject, setEditProject] = useState(PROJECTS[0]);
+    const [editProject, setEditProject] = useState('');
     const [editType, setEditType] = useState<'new' | 'upgrade'>('new');
 
     // Editing Shift State
@@ -628,7 +631,7 @@ const Registration: React.FC<RegistrationProps> = ({
                 {/* SALES REGISTRATION CARD - Second priority */}
                 <div className={`glass p-6 rounded-[32px] border-indigo-500/20 shadow-2xl relative overflow-hidden mb-6 ${currentStreak > 3 ? 'border-amber-500/50 shadow-amber-500/20' : ''}`}>
                     <div className="flex gap-2 overflow-x-auto pb-4 mb-4 custom-scrollbar">
-                        {PROJECTS.map(p => (
+                        {projects.map(p => (
                             <button key={p} onClick={() => setSaleData({ ...saleData, project: p })} className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${saleData.project === p ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-slate-500'}`}>
                                 {p}
                             </button>
@@ -968,7 +971,7 @@ const Registration: React.FC<RegistrationProps> = ({
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-                            {PROJECTS.map(p => (
+                            {projects.map(p => (
                                 <button key={p} onClick={() => setSaleData({ ...saleData, project: p })} className={`p-4 rounded-2xl border text-[10px] font-black transition-all ${saleData.project === p ? 'gradient-bg text-white border-white/20 shadow-lg scale-105' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'}`}>{p}</button>
                             ))}
                         </div>
