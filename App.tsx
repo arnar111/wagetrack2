@@ -33,7 +33,7 @@ import {
 import { doc, setDoc, addDoc, deleteDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
-import { Bounty, getDailyBounties } from './utils/bounties.ts';
+import { Bounty, BountyStats, getDailyBounties, getReplacementBounty } from './utils/bounties.ts';
 
 // Components
 import Dashboard from './components/Dashboard.tsx';
@@ -135,12 +135,34 @@ const App: React.FC = () => {
   const [dailyBounties, setDailyBounties] = useState<Bounty[]>([]);
   const [claimedBountyIds, setClaimedBountyIds] = useState<string[]>([]);
 
-  // Initialize daily bounties from new system
+  // Compute current bounty stats from sales data
+  const bountyStats = useMemo((): BountyStats => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todaySales = sales.filter(s => s.date === todayStr);
+    const totalAmount = todaySales.reduce((acc, s) => acc + s.amount, 0);
+    const maxSale = todaySales.length > 0 ? Math.max(...todaySales.map(s => s.amount)) : 0;
+    const newSales = todaySales.filter(s => s.saleType !== 'upgrade').length;
+    const upgrades = todaySales.filter(s => s.saleType === 'upgrade').length;
+
+    return {
+      salesAmount: totalAmount,
+      salesCount: todaySales.length,
+      newSalesCount: newSales,
+      upgradesCount: upgrades,
+      maxSingleSale: maxSale,
+      hourlyRate: 0 // Will be calculated when shift is active
+    };
+  }, [sales]);
+
+  // Initialize daily bounties - runs when sales change to pick appropriate challenges
   useEffect(() => {
-    const bounties = getDailyBounties(3);
-    setDailyBounties(bounties);
-    setClaimedBountyIds([]);
-  }, []);
+    // Only initialize if we don't have bounties yet
+    if (dailyBounties.length === 0) {
+      const bounties = getDailyBounties(3, bountyStats);
+      setDailyBounties(bounties);
+      setClaimedBountyIds([]);
+    }
+  }, [bountyStats, dailyBounties.length]);
 
   // Bounty claim handler - shows toast with coins
   const handleClaimBounty = useCallback((bountyId: string, coins: number) => {
@@ -149,10 +171,13 @@ const App: React.FC = () => {
     playSound('coin');
   }, [showToast, playSound]);
 
-  // Bounty replacement handler
+  // Bounty replacement handler - gets new bounty that's not already completed
   const handleReplaceBounty = useCallback((oldId: string, newBounty: Bounty) => {
-    setDailyBounties(prev => prev.map(b => b.id === oldId ? newBounty : b));
-  }, []);
+    // Get a replacement that isn't already completed
+    const currentIds = dailyBounties.map(b => b.id);
+    const replacement = getReplacementBounty(currentIds, newBounty.difficulty, bountyStats);
+    setDailyBounties(prev => prev.map(b => b.id === oldId ? replacement : b));
+  }, [dailyBounties, bountyStats]);
 
   // Handle sidebar resize
   useEffect(() => {

@@ -130,43 +130,98 @@ export const BOUNTY_POOL: Bounty[] = [
 ];
 
 /**
+ * Current progress stats for filtering bounties
+ */
+export interface BountyStats {
+    salesAmount: number;
+    salesCount: number;
+    newSalesCount: number;
+    upgradesCount: number;
+    maxSingleSale: number;
+    hourlyRate: number;
+}
+
+/**
+ * Check if a bounty would already be completed with current stats
+ */
+function isBountyAlreadyCompleted(bounty: Bounty, stats: BountyStats): boolean {
+    switch (bounty.checkType) {
+        case 'sales_amount':
+            return stats.salesAmount >= bounty.threshold;
+        case 'sales_count':
+            return stats.salesCount >= bounty.threshold;
+        case 'new_sales_count':
+            return stats.newSalesCount >= bounty.threshold;
+        case 'upgrade_count':
+            return stats.upgradesCount >= bounty.threshold;
+        case 'single_sale':
+            return stats.maxSingleSale >= bounty.threshold;
+        case 'hourly_rate':
+            return stats.hourlyRate >= bounty.threshold;
+        default:
+            // time_based and streak are harder to pre-check, allow them
+            return false;
+    }
+}
+
+/**
  * Get random bounties for the day based on difficulty distribution
+ * Filters out bounties that would already be completed
  * Returns 3 bounties: 1 easy, 1 medium, 1 hard/legendary
  */
-export function getDailyBounties(count: number = 3): Bounty[] {
-    const easy = BOUNTY_POOL.filter(b => b.difficulty === 'easy');
-    const medium = BOUNTY_POOL.filter(b => b.difficulty === 'medium');
-    const hard = BOUNTY_POOL.filter(b => b.difficulty === 'hard' || b.difficulty === 'legendary');
+export function getDailyBounties(count: number = 3, stats?: BountyStats): Bounty[] {
+    // Filter out already-completed bounties if stats provided
+    const availablePool = stats
+        ? BOUNTY_POOL.filter(b => !isBountyAlreadyCompleted(b, stats))
+        : BOUNTY_POOL;
+
+    const easy = availablePool.filter(b => b.difficulty === 'easy');
+    const medium = availablePool.filter(b => b.difficulty === 'medium');
+    const hard = availablePool.filter(b => b.difficulty === 'hard' || b.difficulty === 'legendary');
 
     const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
 
     const selected: Bounty[] = [];
 
     // Pick 1 easy, 1 medium, 1 hard (or adjust based on count)
-    if (count >= 1) selected.push(shuffle(easy)[0]);
-    if (count >= 2) selected.push(shuffle(medium)[0]);
-    if (count >= 3) selected.push(shuffle(hard)[0]);
+    // Fall back to any difficulty if a tier is empty
+    if (count >= 1 && easy.length > 0) selected.push(shuffle(easy)[0]);
+    if (count >= 2 && medium.length > 0) selected.push(shuffle(medium)[0]);
+    if (count >= 3 && hard.length > 0) selected.push(shuffle(hard)[0]);
 
-    // If more requested, add random mix
-    if (count > 3) {
-        const remaining = shuffle([...easy, ...medium, ...hard])
-            .filter(b => !selected.some(s => s.id === b.id))
-            .slice(0, count - 3);
-        selected.push(...remaining);
+    // If we don't have enough, fill from any available
+    while (selected.length < count && availablePool.length > selected.length) {
+        const remaining = shuffle(availablePool)
+            .filter(b => !selected.some(s => s.id === b.id));
+        if (remaining.length > 0) {
+            selected.push(remaining[0]);
+        } else {
+            break;
+        }
     }
 
     return selected;
 }
 
 /**
- * Get a replacement bounty (different from current ones)
+ * Get a replacement bounty (different from current ones, not already completed)
  */
-export function getReplacementBounty(currentIds: string[], preferredDifficulty?: string): Bounty {
+export function getReplacementBounty(currentIds: string[], preferredDifficulty?: string, stats?: BountyStats): Bounty {
+    // Filter out current bounties and already-completed ones
     let pool = BOUNTY_POOL.filter(b => !currentIds.includes(b.id));
+
+    if (stats) {
+        pool = pool.filter(b => !isBountyAlreadyCompleted(b, stats));
+    }
 
     if (preferredDifficulty) {
         const filtered = pool.filter(b => b.difficulty === preferredDifficulty);
         if (filtered.length > 0) pool = filtered;
+    }
+
+    // If all bounties are completed, return any random one
+    if (pool.length === 0) {
+        pool = BOUNTY_POOL.filter(b => !currentIds.includes(b.id));
     }
 
     return pool[Math.floor(Math.random() * pool.length)];

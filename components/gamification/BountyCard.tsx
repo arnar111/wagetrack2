@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Target, Crown, CheckCircle2, Coins, Sparkles, Gift } from 'lucide-react';
-import { Bounty, DIFFICULTY_COLORS, getReplacementBounty } from '../../utils/bounties';
+import { Bounty, DIFFICULTY_COLORS } from '../../utils/bounties';
 
 interface BountyCardProps {
     bounties: Bounty[];
@@ -31,10 +31,8 @@ const BountyCard: React.FC<BountyCardProps> = ({ bounties, completedIds, onClaim
             setSlideOutId(bounty.id);
 
             setTimeout(() => {
-                // Get replacement bounty
-                const currentIds = bounties.map(b => b.id);
-                const replacement = getReplacementBounty(currentIds, bounty.difficulty);
-                onReplaceBounty(bounty.id, replacement);
+                // Tell parent to replace this bounty (parent handles getting new bounty with stats)
+                onReplaceBounty(bounty.id, bounty);
 
                 // Reset states
                 setClaimingId(null);
