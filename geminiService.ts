@@ -5,39 +5,38 @@ import { Shift, WageSummary, Goals, Sale } from "./types.ts";
 const FAST_MODEL = "gemini-3-flash-preview";
 const SMART_MODEL = "gemini-3-flash-preview";
 
-// --- FALLBACK DATA (Offline/Blocked Mode) ---
-const FALLBACK_WINGMAN = [
-  "Hringdu í næsta, hann bíður!",
-  "Ekki hugsa, bara hringja!",
-  "Næsti er JÁ, ég finn það.",
-  "Þú ert einu símtali frá sölunni.",
-  "Haltu áfram, þetta kemur.",
-  "Skerptu á ræðunni, næsti tekur þetta.",
-  "Brostu í gegum símann!",
-  "Engin pása núna, keyrum þetta í gang.",
-  "Þögnin selur, mundu það.",
-  "Ertu búinn að bjóða hækkun?"
+// --- MORRI PERSONALITY: Charity Fundraising Wingman ---
+// MorriAI is an eccentric Icelandic fundraising boss with chaotic energy.
+// NEVER use: "selja", "kaupa", "viðskiptavinur", "sala" in generic sales context
+// ALWAYS use: "styrkja", "gefa", "styrktaraðili", "söfnun", "gefandi"
+
+const MORRI_PHRASES = [
+  "Now watch this drive! Lokaðu þessu.",
+  "Hvern hefði grunað? Gvend hefði grunað að þú myndir landa þessu.",
+  "Cock! Hringdu aftur, ekki hugsa.",
+  "Hvað kallaðiru mig? Ég sver að þú kallaðir mig 'Söfnunarkóng' rétt í þessu!",
+  "Gleðilegt nýtt hár! Ef þú klippir þig vel, safnaru vel.",
+  "Cock! Næsti styrktaraðili er JÁ.",
+  "Ekki senda email. Það er dauðinn. Biddu um pening!"
 ];
 
-// Morri-specific catchphrases (the person MorriAI is based on)
-const MORRI_PHRASES = [
-  "Now watch this drive!",
-  "Hvern hefði grunað? Gvend hefði grunað.",
-  "Cock! Hringdu aftur.",
-  "Hvað kallaðiru mig? Ég sver að þú kallaðir mig söluvél rétt í þessu!",
-  "Gleðilegt nýtt hár, ef þú klippir þig vel, seluru vel.",
-  "Cock! Næsti viðskiptavinur er JÁ.",
-  "Hvern hefði grunað að þú myndir selja svona mikið? Gvend hefði grunað!"
+const FALLBACK_WINGMAN = [
+  "Gleðilegt nýtt hár! Hringdu í næsta.",
+  "Ekki spá í þessu. Bara hringja. Cock!",
+  "Þögnin selur. Haltu kjafti eftir að þú nefnir upphæðina.",
+  "Haltu áfram, þetta kemur. Gvend hefði grunað það.",
+  "Skerptu á ræðunni. Slepptu 'email' vitleysunni.",
+  "Brostu í gegum símann! Þau heyra það.",
+  "Ertu búinn að bjóða hækkun? Now watch this drive."
 ];
 
 const FALLBACK_COACH = [
-  "Hlustaðu betur á viðskiptavininn.",
+  "Hlustaðu betur á styrktaraðilann.",
   "Notaðu þögnina, hún er vinur þinn.",
-  "Spurðu opinna spurninga."
+  "Spurðu opinna spurninga um hvers vegna þau vilja styrkja."
 ];
 
 const getApiKey = (): string => {
-  // Read from environment variable (Vite uses import.meta.env)
   return import.meta.env.VITE_GEMINI_API_KEY || '';
 };
 
@@ -79,7 +78,7 @@ export const chatWithAddi = async (history: { role: string, parts: { text: strin
   }
 };
 
-// --- SALES COACH ---
+// --- FUNDRAISING COACH ---
 export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> => {
   const model = getModel(FAST_MODEL);
 
@@ -87,8 +86,14 @@ export const getSalesCoachAdvice = async (hurdles: string[]): Promise<string> =>
 
   try {
     const prompt = `
-      Ég er sölumaður (fjáröflun). Hindranir í dag: ${hurdles.join(', ')}.
-      Gefðu mér 3 stutt, öflug ráð (bullet points). Svaraðu á ÍSLENSKU.
+      Þú ert MorriAI - þjálfari í fjáröflun fyrir góðgerðarfélög.
+      MIKILVÆGT: Þetta er FJÁRÖFLUN, ekki sala. Notaðu orð eins og:
+      - "styrktaraðili" ekki "viðskiptavinur"  
+      - "styrkja" ekki "kaupa"
+      - "gefa" ekki "selja"
+      
+      Hindranir í dag: ${hurdles.join(', ')}.
+      Gefðu 3 stutt, öflug ráð (bullet points). Max 10 orð hver.
     `;
     const result = await model.generateContent(prompt);
     return result.response.text().replace(/[*#]/g, '') || FALLBACK_COACH.join("\\n");
@@ -103,7 +108,7 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
   if (!model) return { strategicAdvice: "Gagna vantar (Offline)", topProject: "Óvíst" };
 
   try {
-    const prompt = `Berðu saman árangur: ${JSON.stringify(charityData)}. 
+    const prompt = `Berðu saman árangur fyrir góðgerðarsöfnun: ${JSON.stringify(charityData)}. 
     Return JSON only. Format: {"topProject": "Nafn", "strategicAdvice": "Ráð"}`;
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -118,14 +123,17 @@ export const getManagerCommandAnalysis = async (charityData: any) => {
 // --- SCRIPT GENERATOR ---
 export const getSpeechAssistantResponse = async (mode: 'create' | 'search', project: string): Promise<SpeechResult> => {
   const model = getModel(FAST_MODEL);
-  const fallback = { text: `Engin tenging. \\n\\nMundu að kynna ${project} af innlifun og svara spurningum heiðarlega.`, sources: [] };
+  const fallback = { text: `Engin tenging. \\n\\nMundu að kynna ${project} af innlifun og útskýra áhrifin.`, sources: [] };
   if (!model) return fallback;
 
   try {
-    const systemInstruction = `Þú ert reyndur sölumaður. Skrifaðu sannfærandi texta.`;
+    const systemInstruction = `Þú ert MorriAI, háorkumaður í fjáröflun. Skrifaðu sannfærandi texta fyrir góðgerðarsöfnun.
+    BANNAÐ: Orðin "selja", "kaupa", "viðskiptavinur"
+    NOTAÐU: "styrkja", "gefa", "styrktaraðili", "stuðningur"`;
+
     const userPrompt = mode === 'create'
-      ? `Skrifaðu söluræðu fyrir ${project}. 70-100 orð. Íslenska.`
-      : `Hvað gerir ${project}? Stutt yfirlit á íslensku.`;
+      ? `Skrifaðu ræðu til að fá fólk að STYRKJA ${project}. 70-100 orð. Áhersla á áhrif, ekki sölu.`
+      : `Hvað gerir ${project}? Stutt yfirlit sem vekur samúð.`;
 
     const result = await model.generateContent([systemInstruction, userPrompt]);
     return { text: result.response.text().replace(/[*#\\-_>]/g, '').trim(), sources: [] };
@@ -145,11 +153,14 @@ export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodS
 
   try {
     const prompt = `
-      Act as a Sales Coach with personality: "${personality}".
-      TODAY: Sales ${salesToday} ISK (Goal ${goals.daily} ISK).
-      MONTH: Sales ${totalPeriodSales} ISK (Goal ${goals.monthly} ISK).
-      Respond in JSON in ICELANDIC.
-      Format: {"smartAdvice": "short advice (max 6 words)", "trend": "up/down/stable", "motivationalQuote": "quote", "projectedEarnings": ${totalPeriodSales}}
+      Þú ert MorriAI - fjáröflunarþjálfari fyrir góðgerðarfélög.
+      MIKILVÆGT: Þetta er FJÁRÖFLUN/söfnun, ekki venjuleg sala.
+      
+      Í DAG: Safnað ${salesToday} kr (Markmið ${goals.daily} kr).
+      MÁNUÐUR: Safnað ${totalPeriodSales} kr (Markmið ${goals.monthly} kr).
+      
+      Svaraðu á ÍSLENSKU í JSON.
+      Format: {"smartAdvice": "stuttur hvatning (max 6 orð)", "trend": "up/down/stable", "motivationalQuote": "tilvitnun", "projectedEarnings": ${totalPeriodSales}}
     `;
 
     const result = await model.generateContent(prompt);
@@ -167,7 +178,7 @@ export const getSmartDashboardAnalysis = async (salesToday: number, totalPeriodS
   }
 };
 
-// --- LIVE WINGMAN (SMART PERFORMANCE-BASED SYSTEM) ---
+// --- LIVE WINGMAN: MORRIAI CHARITY FUNDRAISING SYSTEM ---
 interface SalesStats {
   salesToday: number;
   salesCount: number;
@@ -184,31 +195,63 @@ export const getWingmanMessage = async (
 ) => {
   const model = getModel(FAST_MODEL);
 
-  // Random Fallback - use Morri phrases sometimes
-  const allFallbacks = [...FALLBACK_WINGMAN, ...MORRI_PHRASES];
-  const randomFallback = allFallbacks[Math.floor(Math.random() * allFallbacks.length)];
+  // Random fallback with weighted Morri phrases (~30% chance)
+  const useMorriPhrase = Math.random() < 0.3;
+  const randomFallback = useMorriPhrase
+    ? MORRI_PHRASES[Math.floor(Math.random() * MORRI_PHRASES.length)]
+    : FALLBACK_WINGMAN[Math.floor(Math.random() * FALLBACK_WINGMAN.length)];
 
   if (!model) return randomFallback;
+
+  // ========== MORRI PERSONA SYSTEM PROMPT ==========
+  const morriSystemPrompt = `
+    Þú ert "MorriAI" - sérvitringur yfirmaður í fjáröflun fyrir góðgerð.
+    
+    ======== STRANGAR REGLUR ========
+    
+    1. ALDREI nota þessi orð (þetta er EKKI venjuleg sala):
+       - "selja", "selt", "sölu"
+       - "kaupa", "keypt"  
+       - "viðskiptavinur"
+       - "vöru"
+    
+    2. ALLTAF nota þessi orð í staðinn:
+       - "styrkja" / "styrkt" / "stuðningur"
+       - "gefa" / "gefið"
+       - "styrktaraðili" / "gefandi"
+       - "söfnun" / "fjáröflun"
+    
+    3. HÁMARKSLENGD: 12-15 orð. Passa í lítinn tilkynningarkassa.
+    
+    4. MORRI CATCHPHRASES (~30% tíma, ALDREI blanda saman):
+       - "Gleðilegt nýtt hár!" (random greeting)
+       - "Cock!" (væg blótsyrði, eins og "helvítis")
+       - "Now watch this drive!" (eftir góð ráð)
+       - "Hvern hefði grunað? Gvend hefði grunað." (þegar eitthvað gengur vel)
+       - "Hvað kallaðiru mig? Ég sver að þú kallaðir mig X rétt í þessu" (leiðinlegt)
+    
+    5. TÓNN: Háorkumaður, dónalegt húmor, íslenskur slangur, skemmtilegur.
+  `;
 
   // If no stats provided, use basic version
   if (!salesStats) {
     try {
       const prompt = `
-        You are MorriAI, a sales coach with a quirky personality inspired by an Icelandic salesman named Morri.
+        ${morriSystemPrompt}
         
-        User has not made a sale in ${minutesSinceSale} minutes.
+        SAMHENGI: Notandi hefur ekki fengið styrk í ${minutesSinceSale} mínútur.
         
-        Give a short, actionable sales tip in Icelandic. Max 12 words.
+        VERKEFNI: Gefðu stutt, öflugt ráð til að fá næsta styrk. Max 12 orð.
         
-        STYLE RULES:
-        - 80% of the time: Just give good, direct sales advice in Icelandic
-        - 20% of the time: Add ONE of these Morri flair elements (pick only one, never combine):
-          * Start with "Cock!" as mild exclamation
-          * End with "Now watch this drive!"
-          * Use "Hvern hefði grunað? Gvend hefði grunað." if celebrating
+        GOÐ DÆMI:
+        - "Cock! Hringdu aftur, ekki hugsa."
+        - "Þögnin vinnur. Nefndu upphæð og haltu kjafti."
+        - "Næsti styrktaraðili er JÁ. Ég finn það."
+        - "Ekki senda email. Biddu um peninginn. Now watch this drive!"
         
-        NEVER combine multiple catchphrases. Keep it natural and readable.
-        Focus on the sales advice first, personality second.
+        SLÆM DÆMI (BANNAÐ):
+        - "Seldu á næsta viðskiptavin" (BANNAÐ ORÐAFORÐI)
+        - "Close the deal" (ENSKIÐ Á VITLAUSUM STAÐ)
       `;
       const result = await model.generateContent(prompt);
       return (await result.response).text().replace(/["]/g, '').replace(/\n/g, ' ').trim();
@@ -217,43 +260,41 @@ export const getWingmanMessage = async (
     }
   }
 
-  // SMART SYSTEM: Analyze performance
+  // SMART SYSTEM: Analyze performance for charity fundraising
   const { salesToday, salesCount, hoursWorked, historicalAvg, goalToday, timeInShift } = salesStats;
 
   const currentRate = hoursWorked > 0 ? salesToday / hoursWorked : 0;
   const performanceVsAvg = historicalAvg > 0 ? (currentRate / historicalAvg) * 100 : 100;
   const goalProgress = goalToday > 0 ? (salesToday / goalToday) * 100 : 0;
-  const hoursRemaining = Math.max(0, 8 - timeInShift); // Assume 8hr shift
+  const hoursRemaining = Math.max(0, 8 - timeInShift);
   const projectedFinal = salesToday + (currentRate * hoursRemaining);
   const onPaceForGoal = projectedFinal >= goalToday;
 
   try {
     const prompt = `
-      You are MorriAI, a sales coach. Analyze this performance and give advice.
+      ${morriSystemPrompt}
       
-      PERFORMANCE:
-      - Sales today: ${salesToday} ISK (${salesCount} sales)
-      - Current pace: ${performanceVsAvg.toFixed(0)}% of your usual average
-      - Goal progress: ${goalProgress.toFixed(0)}%
-      - Minutes since last sale: ${minutesSinceSale}
-      - On track for goal: ${onPaceForGoal ? 'YES' : 'NO'}
+      ======== ÁRANGUR Í DAG ========
+      - Safnað: ${salesToday} kr (${salesCount} styrktaraðilar)
+      - Núverandi hraði: ${performanceVsAvg.toFixed(0)}% af meðaltali
+      - Framvinda að markmiði: ${goalProgress.toFixed(0)}%
+      - Mínútur síðan síðasta styrk: ${minutesSinceSale}
+      - Á réttri leið: ${onPaceForGoal ? 'JÁ' : 'NEI'}
       
-      TASK: Give ONE specific piece of sales advice in Icelandic. Max 15 words.
+      ======== VERKEFNI ========
+      Gefðu EITT stutt ráð í Morri-stíl. Max 12 orð.
       
-      STYLE:
-      - 80% of the time: Just give direct, helpful advice
-      - 20% of the time: Add ONE Morri catchphrase (pick only one, never combine multiple):
-        * "Cock!" at the start
-        * "Now watch this drive!" at the end  
-        * "Hvern hefði grunað? Gvend hefði grunað." for celebration
+      ${performanceVsAvg > 100 ? 'Þú ert að standa þig betur en venjulega - hrósaðu með Morri húmor.' : ''}
+      ${performanceVsAvg < 80 ? 'Þú ert að dragast aftur úr - gefðu öflugt, beint ráð.' : ''}
+      ${minutesSinceSale > 30 ? 'Langt síðan síðasta styrk - þarf brýnt ráð.' : ''}
+      ${goalProgress > 90 ? 'Næstum því á markmiði - hvettu til að klára.' : ''}
       
-      CRITICAL: Never use more than ONE catchphrase. Never combine them.
-      DO NOT mention exact numbers. Keep it natural and readable.
-      
-      GOOD examples:
-      - "Þú ert að standa þig vel, haltu áfram!" (normal)
-      - "Cock! Hringdu í einn viðbótar." (with flair)
-      - "Bjóddu hækkun, þú átt þetta." (normal)
+      ======== DÆMI UM GÓÐ SVÖR ========
+      - "Þú ert að rífa þetta! Hvern hefði grunað? Gvend hefði!"
+      - "Cock! Hringdu núna, hugsa seinna."
+      - "Nefndu upphæðina og þegiðu. Þögnin vinnur."
+      - "Gleðilegt nýtt hár! Næsti er JÁ."
+      - "Now watch this drive! Lokaðu á næsta."
     `;
 
     const result = await model.generateContent(prompt);
@@ -266,35 +307,44 @@ export const getWingmanMessage = async (
 // --- PRE-SHIFT BRIEFING ---
 export const getPreShiftBriefing = async (yesterdaySales: number, personality: string) => {
   const model = getModel(FAST_MODEL);
-  if (!model) return { title: "Góðan dag!", body: "Gangi þér vel í dag." };
+  if (!model) return { title: "Góðan dag!", body: "Gangi þér vel í fjáröfluninni í dag." };
 
   try {
     const prompt = `
-            Act as Sales Coach (${personality}).
-            Yesterday's sales: ${yesterdaySales} ISK.
-            Write pre-shift briefing. Format JSON: { "title": "Short Title", "body": "2 sentences advice" }. Icelandic.
-        `;
+      Þú ert MorriAI - fjáröflunarþjálfari.
+      Söfnun í gær: ${yesterdaySales} kr.
+      
+      Skrifaðu stuttan morgunkynning í Morri-stíl.
+      BANNAÐ: "selja", "viðskiptavinur"
+      NOTAÐU: "styrkja", "styrktaraðili", "söfnun"
+      
+      JSON Format: { "title": "Stutt titill (max 4 orð)", "body": "2 stuttar setningar með Morri orku" }
+    `;
     const result = await model.generateContent(prompt);
     return JSON.parse(stripMarkdown((await result.response).text()));
   } catch (e) {
-    return { title: "Nýr dagur!", body: "Gleymdu gærdeginum, rústaðu deginum í dag." };
+    return { title: "Nýr dagur!", body: "Gleymdu gærdeginum. Gleðilegt nýtt hár! Þú átt þetta." };
   }
 };
 
 // --- PROJECT INSIGHTS ---
 export const getAIProjectComparison = async (sales: Sale[]) => {
   const model = getModel(FAST_MODEL);
-  if (!model) return { headline: "Greining ófáanleg", tip: "Skráðu fleiri sölur." };
+  if (!model) return { headline: "Greining ófáanleg", tip: "Safnaðu fleiri styrkjum." };
 
   const summary: Record<string, number> = {};
   sales.forEach(s => summary[s.project] = (summary[s.project] || 0) + s.amount);
 
   try {
     const prompt = `
-      Analyze sales: ${JSON.stringify(summary)}.
-      1. Headline (max 6 words).
-      2. Tip (max 10 words).
-      JSON Format: {"headline": "...", "tip": "..."}. Icelandic.
+      Greindu söfnun fyrir góðgerðarfélög: ${JSON.stringify(summary)}.
+      
+      BANNAÐ: Orðið "selja"
+      NOTAÐU: "söfnun", "styrkir"
+      
+      1. Headline (max 6 orð).
+      2. Tip (max 10 orð).
+      JSON Format: {"headline": "...", "tip": "..."}. Íslenska.
     `;
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -302,6 +352,6 @@ export const getAIProjectComparison = async (sales: Sale[]) => {
     });
     return JSON.parse(stripMarkdown(result.response.text()));
   } catch (e) {
-    return { headline: "Engin greining.", tip: "Haltu áfram að selja." };
+    return { headline: "Engin greining.", tip: "Haltu áfram að safna styrkjum." };
   }
 };
