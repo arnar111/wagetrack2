@@ -52,6 +52,7 @@ interface RegistrationProps {
     claimedBountyIds?: string[];
     onClaimBounty?: (bountyId: string, coins: number) => void;
     onReplaceBounty?: (oldBountyId: string, newBounty: Bounty) => void;
+    onRefreshBounties?: () => void;  // Add new context-aware bounties
     coachPersonality?: string;
 
     // --- New Props from App.tsx ---
@@ -81,7 +82,7 @@ interface RegistrationProps {
 }
 
 const Registration: React.FC<RegistrationProps> = ({
-    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, claimedBountyIds, onClaimBounty, onReplaceBounty, coachPersonality = "standard",
+    onSaveShift, onSaveSale, onDeleteSale, onUpdateSale, currentSales, shifts, editingShift, onUpdateShift, onClearEditingShift, goals, onUpdateGoals, userRole, userId, dailyBounties, claimedBountyIds, onClaimBounty, onReplaceBounty, onRefreshBounties, coachPersonality = "standard",
     isShiftActive, clockInTime, onClockIn, onClockOut, onTabChange, requireOFCheck, autoPausesEnabled, user, activeBattle,
     persistedSaleType, onSaleTypeChange, persistedSaleData, onSaleDataChange, persistedBreakMinutes, onBreakMinutesChange, persistedBreakEndTime, onBreakEndTimeChange, persistedOfChecked, onOfCheckedChange
 }) => {
@@ -701,6 +702,7 @@ const Registration: React.FC<RegistrationProps> = ({
                         completedIds={completedBountyIds}
                         onClaimBounty={onClaimBounty}
                         onReplaceBounty={onReplaceBounty}
+                        onRefreshBounties={onRefreshBounties}
                     />
                 )}
 
@@ -1061,6 +1063,7 @@ const Registration: React.FC<RegistrationProps> = ({
                             completedIds={completedBountyIds}
                             onClaimBounty={onClaimBounty}
                             onReplaceBounty={onReplaceBounty}
+                            onRefreshBounties={onRefreshBounties}
                         />
                     )}
 

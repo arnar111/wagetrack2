@@ -28,12 +28,14 @@ import {
   BarChart4,
   Trophy,
   MessageSquare,
-  Users
+  Users,
+  Tv
 } from 'lucide-react';
 import { doc, setDoc, addDoc, deleteDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase.ts';
 import { calculateWageSummary } from './utils/calculations.ts';
-import { Bounty, BountyStats, getDailyBounties, getReplacementBounty } from './utils/bounties.ts';
+import { Bounty, BountyStats, BountyContext, getDailyBounties, getReplacementBounty, getContextAwareBounties } from './utils/bounties.ts';
+import { toggleMyTimePlanAttendance, parseMyTimePlanMessage } from './services/mytimeplanService.ts';
 
 // Components
 import Dashboard from './components/Dashboard.tsx';
@@ -55,6 +57,13 @@ import StatsView from './components/StatsView.tsx';
 import ChallengesPanel from './components/ChallengesPanel.tsx';
 import ManagerCoachingView from './components/ManagerCoachingView.tsx';
 import SpectatorView from './components/Competitions/SpectatorView.tsx';
+// v3.0.0 - New components
+import WhatsNewModal from './components/WhatsNewModal.tsx';
+// v3.5.0 - TV Mode
+import { TVDashboard } from './components/TVMode';
+import AchievementsPanel from './components/AchievementsPanel.tsx';
+import AchievementUnlockedModal from './components/AchievementUnlockedModal.tsx';
+import { useAchievements } from './hooks/useAchievements';
 
 const App: React.FC = () => {
   console.log("📦 App Component Rendering...");
@@ -118,6 +127,7 @@ const App: React.FC = () => {
   const [logoError, setLogoError] = useState(false);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [spectatingBattle, setSpectatingBattle] = useState<any>(null);
+  const [tvModeOpen, setTvModeOpen] = useState(false);
 
   // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
   const [persistedSaleType, setPersistedSaleType] = useState<'new' | 'upgrade'>('new');
@@ -130,6 +140,22 @@ const App: React.FC = () => {
   const { currentStreak, isActive: streakIsActive } = useStreaks(user?.staffId, sales);
   const { playSound } = useSounds();
   const { isOnline, pendingCount, queueSale, syncQueue } = useOfflineQueue();
+
+  // v3.0.0 - Achievement System
+  const {
+    unlockedAchievements,
+    achievementProgress,
+    newlyUnlocked,
+    totalCoins: achievementCoins,
+    totalXP: achievementXP,
+    clearNewlyUnlocked
+  } = useAchievements({
+    staffId: user?.staffId,
+    sales,
+    currentStreak,
+    battlesWon: battles.filter(b => b.winnerId === user?.staffId).length,
+    goals: goals || { daily: 0, weekly: 0, monthly: 0 }
+  });
 
   // --- BOUNTY SYSTEM ---
   const [dailyBounties, setDailyBounties] = useState<Bounty[]>([]);
@@ -179,6 +205,20 @@ const App: React.FC = () => {
     setDailyBounties(prev => prev.map(b => b.id === oldId ? replacement : b));
   }, [dailyBounties, bountyStats]);
 
+  // Context-aware bounty refresh - replaces all bounties with new context-aware ones
+  const handleRefreshBounties = useCallback(() => {
+    const context: BountyContext = {
+      saleType: persistedSaleType,
+      currentHour: new Date().getHours(),
+      stats: bountyStats,
+      excludeIds: [] // Empty since we're replacing all
+    };
+    const newBounties = getContextAwareBounties(5, context);
+    setDailyBounties(newBounties);
+    setClaimedBountyIds([]); // Reset claimed to avoid stale state
+    showToast(`5 ný verkefni! 🎯`, 'success');
+  }, [persistedSaleType, bountyStats, showToast]);
+
   // Handle sidebar resize
   useEffect(() => {
     const handleResize = () => {
@@ -190,6 +230,10 @@ const App: React.FC = () => {
 
   // --- AUTO-LOGOUT BY LOCATION ---
   useEffect(() => {
+    // TEMPORARY: Disable for MyTimePlan testing
+    const DISABLE_AUTO_LOGOUT_FOR_TESTING = true;
+    if (DISABLE_AUTO_LOGOUT_FOR_TESTING) return;
+
     if (!user || !isShiftActive || !clockInTime) return;
 
     const closingHours: { [key: string]: number } = {
@@ -323,7 +367,34 @@ const App: React.FC = () => {
   const activeBattleWithScores = user?.staffId === '123' && !realActiveBattle ? demoBattle : realActiveBattle;
 
   // --- HANDLERS ---
-  const onClockIn = (goal: number) => {
+  const onClockIn = async (goal: number) => {
+    console.log('🟢🟢🟢 CLOCK IN TRIGGERED 🟢🟢🟢');
+    // DEBUG: Log kennitala status
+    console.log('[MyTimePlan Debug] User:', user?.staffId, 'Kennitala:', user?.kennitala || 'NOT SET');
+
+    // First, sync with MyTimePlan if user has kennitala
+    if (user?.kennitala) {
+      try {
+        console.log('[MyTimePlan] Attempting clock-in sync...');
+        const result = await toggleMyTimePlanAttendance(user.kennitala);
+        console.log('[MyTimePlan] Result:', result);
+        if (result.success) {
+          const parsed = parseMyTimePlanMessage(result.message);
+          if (parsed) {
+            showToast(`MyTimePlan: ${parsed.action} kl. ${parsed.time}`, 'success');
+          } else {
+            // Fallback: show the raw message or action
+            const actionText = result.action === 'clock_in' ? 'Skráður inn' :
+              result.action === 'clock_out' ? 'Skráður út' : 'Skráning tókst';
+            showToast(`MyTimePlan: ${actionText}`, 'success');
+          }
+        }
+      } catch (error) {
+        console.error('[MyTimePlan] Clock-in sync failed:', error);
+        showToast('MyTimePlan sync tókst ekki', 'error');
+      }
+    }
+
     handleClockIn(goal, (g) => {
       if (user) {
         setDoc(doc(db, "user_configs", user.staffId), { goals: { ...goals, daily: g } }, { merge: true });
@@ -334,6 +405,32 @@ const App: React.FC = () => {
 
   const onClockOut = async (shiftData: any) => {
     if (!user) return;
+
+    console.log('🔴🔴🔴 CLOCK OUT TRIGGERED 🔴🔴🔴');
+
+    // Sync with MyTimePlan if user has kennitala
+    if (user?.kennitala) {
+      try {
+        console.log('[MyTimePlan] Attempting clock-out sync...');
+        const result = await toggleMyTimePlanAttendance(user.kennitala);
+        console.log('[MyTimePlan] Clock-out result:', result);
+        if (result.success) {
+          const parsed = parseMyTimePlanMessage(result.message);
+          if (parsed) {
+            showToast(`MyTimePlan: ${parsed.action} kl. ${parsed.time}`, 'success');
+          } else {
+            // Fallback toast
+            const actionText = result.action === 'clock_in' ? 'Skráður inn' :
+              result.action === 'clock_out' ? 'Skráður út' : 'Skráning tókst';
+            showToast(`MyTimePlan: ${actionText}`, 'success');
+          }
+        }
+      } catch (error) {
+        console.error('[MyTimePlan] Clock-out sync failed:', error);
+        showToast('MyTimePlan sync tókst ekki', 'error');
+      }
+    }
+
     await handleClockOut(shiftData, user.staffId);
   };
 
@@ -364,6 +461,7 @@ const App: React.FC = () => {
     // Analytics & Insights (grouped together)
     { id: 'insights', icon: <PieChart size={20} />, label: 'Greining' },
     { id: 'stats', icon: <BarChart4 size={20} />, label: 'Tölfræði' },
+    { id: 'achievements', icon: <Trophy size={20} />, label: 'Afrek' },
     { id: 'divider3', divider: true },
 
     // Tools & Communication
@@ -391,6 +489,15 @@ const App: React.FC = () => {
           <h1 className="text-sm font-black text-white tracking-wider hidden md:block">Takk Arena</h1>
         </div>
         <div className="flex items-center gap-4">
+          {/* TV Mode Button */}
+          <button
+            onClick={() => setTvModeOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg border border-indigo-500/30 transition-all"
+            title="Opna TV Mode"
+          >
+            <Tv size={16} />
+            <span className="text-xs font-semibold">TV</span>
+          </button>
           {isImpersonating && (
             <span className="text-xs text-amber-400 font-medium hidden md:block">👁 Viewing as: {user?.name}</span>
           )}
@@ -505,6 +612,7 @@ const App: React.FC = () => {
                 claimedBountyIds={claimedBountyIds}
                 onClaimBounty={handleClaimBounty}
                 onReplaceBounty={handleReplaceBounty}
+                onRefreshBounties={handleRefreshBounties}
                 coachPersonality={coachPersonality}
                 onTabChange={setActiveTab}
                 requireOFCheck={requireOFCheck}
@@ -533,6 +641,14 @@ const App: React.FC = () => {
                 battles={battles}
                 user={user}
                 claimedBountyIds={claimedBountyIds}
+              />
+            )}
+
+            {activeTab === 'achievements' && (
+              <AchievementsPanel
+                achievementProgress={achievementProgress}
+                totalCoins={achievementCoins}
+                totalXP={achievementXP}
               />
             )}
 
@@ -692,6 +808,31 @@ const App: React.FC = () => {
           <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
           <span className="text-sm font-bold">Utan nets - {pendingCount} í biðröð</span>
         </div>
+      )}
+
+      {/* v3.0.0 - What's New Modal */}
+      <WhatsNewModal />
+
+      {/* v3.0.0 - Achievement Unlocked Modal */}
+      {newlyUnlocked.length > 0 && (
+        <AchievementUnlockedModal
+          achievements={newlyUnlocked}
+          onClose={clearNewlyUnlocked}
+          onClaimAll={() => {
+            playSound('coin');
+            clearNewlyUnlocked();
+          }}
+        />
+      )}
+
+      {/* v3.5.0 - TV Mode Dashboard */}
+      {tvModeOpen && (
+        <TVDashboard
+          users={allUsers}
+          sales={allSales}
+          battles={battles}
+          onClose={() => setTvModeOpen(false)}
+        />
       )}
     </div >
   );
