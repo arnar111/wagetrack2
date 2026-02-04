@@ -115,6 +115,7 @@ export interface Battle {
   modifiers?: BattleModifier[];
   teamBattle?: boolean;
   teamIds?: string[];
+  winnerId?: string;
 }
 
 export interface BattleParticipant {
