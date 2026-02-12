@@ -228,6 +228,99 @@ export function getReplacementBounty(currentIds: string[], preferredDifficulty?:
 }
 
 /**
+ * Context for intelligent bounty selection
+ */
+export interface BountyContext {
+    saleType: 'new' | 'upgrade';      // Current sale type selection
+    currentHour: number;               // 0-23
+    stats: BountyStats;                // Current progress stats
+    excludeIds: string[];              // IDs of current bounties to exclude
+}
+
+/**
+ * Time-based bounty IDs that should be filtered based on current hour
+ */
+const TIME_SENSITIVE_BOUNTIES: { id: string; maxHour: number }[] = [
+    { id: 'lunch_rush', maxHour: 13 },      // Sala á hádegivakt - not after 1pm
+    { id: 'morning_start', maxHour: 12 },   // Sala fyrir hádegi - not after noon
+    { id: 'quick_start', maxHour: 12 },     // Fyrstu 30 mín - not after noon
+    { id: 'afternoon_push', maxHour: 17 },  // Eftir 15:00 - not after 5pm
+    { id: 'evening_warrior', maxHour: 20 }, // Eftir 17:00 - not after 8pm
+];
+
+/**
+ * Get context-aware bounties that prioritize based on current work context
+ * - Prioritizes upgrade bounties when in upgrade mode
+ * - Filters out time-inappropriate bounties (e.g., no lunch rush at 2pm)
+ * - Always returns requested count (falls back to any available bounties)
+ */
+export function getContextAwareBounties(count: number, context: BountyContext): Bounty[] {
+    const { saleType, currentHour, stats, excludeIds } = context;
+
+    // Start with full pool, exclude current bounties
+    let pool = BOUNTY_POOL.filter(b => !excludeIds.includes(b.id));
+
+    // Filter out already-completed bounties
+    pool = pool.filter(b => !isBountyAlreadyCompleted(b, stats));
+
+    // Filter out time-inappropriate bounties
+    pool = pool.filter(b => {
+        const timeRule = TIME_SENSITIVE_BOUNTIES.find(t => t.id === b.id);
+        if (timeRule && currentHour >= timeRule.maxHour) {
+            return false; // Exclude this bounty - too late in the day
+        }
+        return true;
+    });
+
+    // Fallback if pool is too small
+    if (pool.length < count) {
+        // Add back non-excluded bounties that aren't already in pool
+        const additionalPool = BOUNTY_POOL.filter(b =>
+            !excludeIds.includes(b.id) && !pool.some(p => p.id === b.id)
+        );
+        pool = [...pool, ...additionalPool];
+    }
+
+    // Final fallback: if still not enough, use entire pool minus excludes
+    if (pool.length < count) {
+        pool = BOUNTY_POOL.filter(b => !excludeIds.includes(b.id));
+    }
+
+    const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+    // Prioritize based on sale type
+    const priorityCheckType = saleType === 'upgrade' ? 'upgrade_count' : 'new_sales_count';
+    const priorityBounties = pool.filter(b => b.checkType === priorityCheckType);
+    const otherBounties = pool.filter(b => b.checkType !== priorityCheckType);
+
+    const selected: Bounty[] = [];
+
+    // Pick from priority bounties first (up to half)
+    const priorityCount = Math.min(Math.ceil(count / 2), priorityBounties.length);
+    const shuffledPriority = shuffle(priorityBounties);
+    for (let i = 0; i < priorityCount; i++) {
+        selected.push(shuffledPriority[i]);
+    }
+
+    // Fill remaining from other bounties
+    const remaining = count - selected.length;
+    const shuffledOther = shuffle(otherBounties);
+    for (let i = 0; i < remaining && i < shuffledOther.length; i++) {
+        selected.push(shuffledOther[i]);
+    }
+
+    // If still not enough (edge case), fill from entire shuffled pool
+    if (selected.length < count) {
+        const allShuffled = shuffle(pool).filter(b => !selected.some(s => s.id === b.id));
+        for (let i = 0; selected.length < count && i < allShuffled.length; i++) {
+            selected.push(allShuffled[i]);
+        }
+    }
+
+    return selected;
+}
+
+/**
  * Difficulty colors for UI
  */
 export const DIFFICULTY_COLORS = {

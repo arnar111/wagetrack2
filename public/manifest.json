@@ -1,7 +1,8 @@
 {
     "name": "Takk Arena",
     "short_name": "Takk Arena",
-    "description": "Sales gamification and competition platform for sales teams",
+    "version": "3.0.0",
+    "description": "Sales gamification and competition platform for sales teams - The Achievement Update",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#01040f",
@@ -23,7 +24,8 @@
     ],
     "categories": [
         "business",
-        "productivity"
+        "productivity",
+        "games"
     ],
     "lang": "is"
 }

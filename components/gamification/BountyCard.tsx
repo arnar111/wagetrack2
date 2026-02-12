@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Target, Crown, CheckCircle2, Coins, Sparkles, Gift } from 'lucide-react';
+import { Target, Crown, CheckCircle2, Coins, Sparkles, Gift, RefreshCw } from 'lucide-react';
 import { Bounty, DIFFICULTY_COLORS } from '../../utils/bounties';
 
 interface BountyCardProps {
@@ -7,9 +7,11 @@ interface BountyCardProps {
     completedIds: string[];
     onClaimBounty: (bountyId: string, coins: number) => void;
     onReplaceBounty: (oldBountyId: string, newBounty: Bounty) => void;
+    onRefreshBounties?: () => void;  // Add new context-aware bounties
 }
 
-const BountyCard: React.FC<BountyCardProps> = ({ bounties, completedIds, onClaimBounty, onReplaceBounty }) => {
+const BountyCard: React.FC<BountyCardProps> = ({ bounties, completedIds, onClaimBounty, onReplaceBounty, onRefreshBounties }) => {
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [claimingId, setClaimingId] = useState<string | null>(null);
     const [celebratingId, setCelebratingId] = useState<string | null>(null);
     const [slideOutId, setSlideOutId] = useState<string | null>(null);
@@ -52,6 +54,34 @@ const BountyCard: React.FC<BountyCardProps> = ({ bounties, completedIds, onClaim
                     <Target size={16} /> Dagsverkefni
                 </h3>
                 <div className="flex items-center gap-2">
+                    {onRefreshBounties && (
+                        <button
+                            onClick={() => {
+                                // Check for unclaimed completed bounties
+                                const unclaimedCompleted = bounties.filter(b =>
+                                    completedIds.includes(b.id)
+                                ).length;
+
+                                if (unclaimedCompleted > 0) {
+                                    const confirmMsg = `Þú átt ${unclaimedCompleted} ókrafin verkefni. Viltu halda áfram?`;
+                                    if (!confirm(confirmMsg)) return;
+                                }
+
+                                setIsRefreshing(true);
+                                onRefreshBounties();
+                                setTimeout(() => setIsRefreshing(false), 500);
+                            }}
+                            disabled={isRefreshing}
+                            className={`p-2 rounded-lg transition-all ${isRefreshing
+                                    ? 'bg-white/5 text-slate-600 cursor-not-allowed'
+                                    : 'bg-white/5 hover:bg-indigo-500/20 text-slate-500 hover:text-indigo-400 active:scale-90'
+                                }`}
+                            title="Endurnýja verkefni"
+                            aria-label="Endurnýja dagsverkefni"
+                        >
+                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                        </button>
+                    )}
                     <span className="text-xs font-bold text-slate-500">
                         {completedCount}/{bounties.length}
                     </span>

@@ -14,7 +14,26 @@ interface PayslipProps {
 
 const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userName, onUpdateSettings }) => {
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
-  const [activeView, setActiveView] = useState<'current' | 'projection'>('current');
+  const [activeView, setActiveView] = useState<'current' | 'projection' | 'actual'>('current');
+
+  // --- Actual payslip import (prototype) ---
+  // Prototype storage: store per selectedPeriodIndex (good enough for testing; later we can key by date range).
+  const storageKey = `takkarena.actualPayslip.periodIndex.${selectedPeriodIndex}`;
+
+  const [actualRaw, setActualRaw] = useState<string>('');
+  const [actual, setActual] = useState<any | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) setActual(JSON.parse(saved));
+    } catch {}
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!actual) return;
+    try { localStorage.setItem(storageKey, JSON.stringify(actual)); } catch {}
+  }, [actual, storageKey]);
 
   // Projection controls
   const [projectedRemainingShifts, setProjectedRemainingShifts] = useState<number>(10);
@@ -27,6 +46,50 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userNam
       currency: 'ISK',
       maximumFractionDigits: 0
     }).format(val);
+  };
+
+  const parseISK = (s: string) => {
+    // accepts e.g. "737.210" or "1.047.238" or "472.080,00"
+    const cleaned = s.replace(/\s/g, '').replace(/\./g, '').replace(/,/g, '.');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const parseActualPayslip = (raw: string) => {
+    const t = raw || '';
+    const out: any = {};
+
+    const gross = t.match(/Laun:\s*([0-9.]+)\b/);
+    const ded = t.match(/Frádráttur:\s*([0-9.]+)\b/);
+    const net = t.match(/Útborgu\s*ð\s*laun:\s*([0-9.]+)\b/);
+
+    if (gross?.[1]) out.gross = parseISK(gross[1]);
+    if (ded?.[1]) out.deductions = parseISK(ded[1]);
+    if (net?.[1]) out.net = parseISK(net[1]);
+
+    // Hours
+    const dayH = t.match(/101\s+Dagvinna\s+([0-9]+,[0-9]+)/);
+    const eveH = t.match(/1026\s+Eftirvinna\s+([0-9]+,[0-9]+)/);
+    if (dayH?.[1]) out.dayHours = Number(dayH[1].replace(',', '.'));
+    if (eveH?.[1]) out.eveningHours = Number(eveH[1].replace(',', '.'));
+
+    // Bonus line
+    const bonus = t.match(/1604\s+Bónus[^\n]*\s([0-9.]+)\b/);
+    if (bonus?.[1]) out.bonus = parseISK(bonus[1]);
+
+    // Tax + pension + union fee (optional)
+    const tax = t.match(/910\s+Sta\s*ð\s*grei\s*ð\s*sla\s+skatta\s+([0-9.]+)\b/);
+    const pension = t.match(/10\s+I\s*ð\s*gjald\s*4,00%\s+([0-9.]+)\b/);
+    const union = t.match(/50\s+Félagsgjald\s+0,70%\s+([0-9.]+)\b/);
+    if (tax?.[1]) out.tax = parseISK(tax[1]);
+    if (pension?.[1]) out.pension = parseISK(pension[1]);
+    if (union?.[1]) out.unionFee = parseISK(union[1]);
+
+    // Date
+    const date = t.match(/Dagsetning:\s*([0-9]{2}\.[0-9]{2}\.[0-9]{4})/);
+    if (date?.[1]) out.date = date[1];
+
+    return out;
   };
 
   // --- 1. Generate Last 10 Pay Periods ---
@@ -347,6 +410,90 @@ const Payslip: React.FC<PayslipProps> = ({ shifts, sales = [], settings, userNam
           >
             <Sparkles size={16} /> Spá
           </button>
+          <button
+            onClick={() => setActiveView('actual')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2
+              ${activeView === 'actual' ? 'bg-violet-500 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+          >
+            <Target size={16} /> Raunlaun
+          </button>
+        </div>
+      )}
+
+      {/* ACTUAL PAYSLIP (PROTOTYPE) */}
+      {activeView === 'actual' && selectedPeriodIndex === 0 && (
+        <div className="space-y-6 px-4">
+          <div className="glass p-6 rounded-[32px] border-violet-500/20">
+            <p className="text-[10px] font-black text-violet-300 uppercase tracking-[0.2em] mb-2 italic">Raun launaseðill (prototype)</p>
+            <p className="text-xs text-slate-400 mb-4">Paste-a textann úr PDF (eða úr WhatsApp) hér — þá reyni ég að lesa úr honum tölurnar og bera saman við reiknað.</p>
+
+            <textarea
+              value={actualRaw}
+              onChange={(e) => setActualRaw(e.target.value)}
+              placeholder="Límdu inn textann úr launaseðlinum hér..."
+              className="w-full h-40 bg-black/30 border border-white/10 rounded-2xl p-4 text-xs text-slate-200 font-mono"
+            />
+
+            <div className="flex flex-wrap gap-3 mt-4">
+              <button
+                onClick={() => {
+                  const parsed = parseActualPayslip(actualRaw);
+                  setActual(parsed);
+                }}
+                className="px-4 py-3 rounded-2xl bg-violet-500 hover:bg-violet-400 text-white text-xs font-black uppercase tracking-wider"
+              >
+                Lesa úr texta
+              </button>
+              <button
+                onClick={() => { setActual(null); setActualRaw(''); }}
+                className="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-black uppercase tracking-wider"
+              >
+                Hreinsa
+              </button>
+              {actual && (
+                <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                  <AlertCircle size={14} className="text-slate-500" />
+                  <span>Vistað local (á þessu tæki) fyrir tímabilið.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Comparison */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="glass p-6 rounded-[32px] border-white/10">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Reiknað nettó</p>
+              <p className="text-2xl font-black text-indigo-400">{payroll ? formatISK(payroll.netPay) : '—'}</p>
+              <p className="text-[10px] text-slate-500 mt-1">(úr vöktum + sölu)</p>
+            </div>
+            <div className="glass p-6 rounded-[32px] border-violet-500/20">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Raun nettó</p>
+              <p className="text-2xl font-black text-violet-400">{actual?.net ? formatISK(actual.net) : '—'}</p>
+              <p className="text-[10px] text-slate-500 mt-1">{actual?.date ? `Dagsetning: ${actual.date}` : ''}</p>
+            </div>
+            <div className="glass p-6 rounded-[32px] border-emerald-500/20">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Mismunur</p>
+              <p className="text-2xl font-black text-emerald-400">
+                {payroll && actual?.net != null ? formatISK((actual.net || 0) - payroll.netPay) : '—'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">(raun − reiknað)</p>
+            </div>
+          </div>
+
+          {actual && (
+            <div className="glass p-6 rounded-[32px] border-white/10">
+              <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-4">Lesið úr launaseðli</h4>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Brúttó</span><span className="text-white font-bold">{actual.gross ? formatISK(actual.gross) : '—'}</span></div>
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Frádráttur</span><span className="text-white font-bold">{actual.deductions ? formatISK(actual.deductions) : '—'}</span></div>
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Dagklst</span><span className="text-white font-bold">{actual.dayHours != null ? actual.dayHours.toFixed(2) : '—'}</span></div>
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Yfirvinna klst</span><span className="text-white font-bold">{actual.eveningHours != null ? actual.eveningHours.toFixed(2) : '—'}</span></div>
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Bónus</span><span className="text-white font-bold">{actual.bonus ? formatISK(actual.bonus) : '—'}</span></div>
+                <div className="flex justify-between bg-white/5 rounded-2xl p-3"><span className="text-slate-400">Staðgreiðsla</span><span className="text-white font-bold">{actual.tax ? formatISK(actual.tax) : '—'}</span></div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-4">Þetta er bara prototype til að hjálpa okkur að finna hvar reiknivélin er vitlaus. Næsta skref: true PDF import + 6 mánaða trend.</p>
+            </div>
+          )}
         </div>
       )}
 

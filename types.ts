@@ -17,6 +17,7 @@ export interface User {
   };
   requireOFCheck?: boolean;
   autoPausesEnabled?: boolean;
+  kennitala?: string;  // For MyTimePlan integration (encrypted)
 }
 
 export type CoachPersonality = 'standard' | 'drill_sergeant' | 'zen_master' | 'wolf';
@@ -114,6 +115,7 @@ export interface Battle {
   modifiers?: BattleModifier[];
   teamBattle?: boolean;
   teamIds?: string[];
+  winnerId?: string;
 }
 
 export interface BattleParticipant {
