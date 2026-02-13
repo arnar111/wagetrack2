@@ -64,6 +64,7 @@ import { TVDashboard } from './components/TVMode';
 import AchievementsPanel from './components/AchievementsPanel.tsx';
 import AchievementUnlockedModal from './components/AchievementUnlockedModal.tsx';
 import OnboardingWalkthrough, { ONBOARDING_STORAGE_KEY } from './components/OnboardingWalkthrough.tsx';
+import UserSettingsModal from './components/UserSettingsModal.tsx';
 import { useAchievements } from './hooks/useAchievements';
 
 const App: React.FC = () => {
@@ -130,6 +131,7 @@ const App: React.FC = () => {
   const [spectatingBattle, setSpectatingBattle] = useState<any>(null);
   const [tvModeOpen, setTvModeOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showUserSettings, setShowUserSettings] = useState(false);
 
   // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
   const [persistedSaleType, setPersistedSaleType] = useState<'new' | 'upgrade'>('new');
@@ -707,6 +709,29 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
+                  {/* User Profile Settings */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/50" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-black">
+                          {(user.name || 'U').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-wide mb-0.5">Notandaprófíll</h3>
+                        <p className="text-xs text-slate-500">Nafn, gælunafn og prófílmynd</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowUserSettings(true)}
+                      className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-xl border border-indigo-500/30 transition-all text-xs font-bold"
+                    >
+                      Breyta
+                    </button>
+                  </div>
+
                   {/* OF Check Toggle */}
                   <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
                     <div className="flex-1">
@@ -846,6 +871,13 @@ const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* v3.2.0 - User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showUserSettings}
+        onClose={() => setShowUserSettings(false)}
+        user={user}
+      />
 
       {/* v3.5.0 - TV Mode Dashboard */}
       {tvModeOpen && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Trophy, Zap, Bell, Volume2, PartyPopper } from 'lucide-react';
 
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const STORAGE_KEY = 'arnarflow_last_seen_version';
 
 interface WhatsNewModalProps {
@@ -17,32 +17,22 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    icon: <Trophy className="text-amber-400" size={24} />,
-    title: 'Achievement System',
-    description: '25+ afrek sem þú getur aflæst! Dagleg, vikuleg og sérstök verkefni.',
+    icon: <Sparkles className="text-indigo-400" size={24} />,
+    title: 'Notandaprófíll',
+    description: 'Breyttu nafni, settu gælunafn og hladdu upp prófílmynd! Myndin birtist á stigatöflu og í TV mode.',
     tag: 'NÝ FEATURE'
   },
   {
-    icon: <Bell className="text-indigo-400" size={24} />,
-    title: 'Vikulegur Digest',
-    description: 'Fáðu sjálfvirka samantekt á frammistöðu þinni á hverjum sunnudegi.',
-    tag: 'NÝ FEATURE'
+    icon: <Trophy className="text-amber-400" size={24} />,
+    title: 'Prófílmynd í TV Mode',
+    description: 'Prófílmyndin þín birtist nú á TV stigatöflunni í stað upphafsstafa.',
+    tag: 'LAGFÆRING'
   },
   {
     icon: <Zap className="text-emerald-400" size={24} />,
-    title: 'Level Up Animations',
-    description: 'Flottar hreyfimyndir þegar þú hækkar um stig eða nærð markmiðum.',
+    title: 'Firebase Storage',
+    description: 'Myndir eru vistaðar á öruggan hátt í Firebase Storage.',
   },
-  {
-    icon: <PartyPopper className="text-pink-400" size={24} />,
-    title: 'Confetti á stórum sölum',
-    description: 'Sölur yfir 50.000 kr fá sérstaka confetti hátíð! 🎊',
-  },
-  {
-    icon: <Volume2 className="text-cyan-400" size={24} />,
-    title: 'Sound Effects Toggle',
-    description: 'Stjórnaðu hljóðmerkjum í stillingum - kveikt eða slökkt.',
-  }
 ];
 
 const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ onClose }) => {
@@ -111,7 +101,7 @@ const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ onClose }) => {
             Hvað er nýtt? ✨
           </h2>
           <p className="text-sm text-slate-400">
-            Útgáfa {APP_VERSION} • The Achievement Update
+            Útgáfa {APP_VERSION} • Notandaprófíll
           </p>
         </div>
 

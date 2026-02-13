@@ -18,6 +18,9 @@ export interface User {
   requireOFCheck?: boolean;
   autoPausesEnabled?: boolean;
   kennitala?: string;  // For MyTimePlan integration (encrypted)
+  avatar?: string;     // Firebase Storage URL for profile picture
+  nickname?: string;   // User-chosen nickname
+  displayName?: string; // Editable display name
 }
 
 export type CoachPersonality = 'standard' | 'drill_sergeant' | 'zen_master' | 'wolf';

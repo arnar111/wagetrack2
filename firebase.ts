@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously, OAuthProvider, signInWithPopup } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBlDlTWdxsGzoK0NRnNAnQ063E_MF-JXs8",
@@ -24,6 +25,8 @@ microsoftProvider.setCustomParameters({
   // Forces the select account screen every time
   prompt: 'select_account'
 });
+
+export const storage = getStorage(app);
 
 export { signInAnonymously, signInWithPopup };
 export default app;
