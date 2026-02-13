@@ -149,7 +149,7 @@ const Chatbot: React.FC = () => {
                 className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all pr-12"
               />
               <button 
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!input.trim() || loading}
                 className="absolute right-2 top-2 bottom-2 px-3 bg-indigo-500 rounded-xl text-white hover:bg-indigo-400 active:scale-95 transition-all disabled:opacity-30"
               >
