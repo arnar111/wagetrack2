@@ -17,7 +17,7 @@ const TeamsView: React.FC<TeamsViewProps> = ({ users, sales, currentUser }) => {
 
             // Calculate team total sales
             const teamSales = sales.filter(s =>
-                members.some(m => m.id === s.userId)
+                members.some(m => m.staffId === s.userId)
             ).reduce((sum, s) => sum + s.amount, 0);
 
             // Calculate average per member
@@ -61,17 +61,17 @@ const TeamsView: React.FC<TeamsViewProps> = ({ users, sales, currentUser }) => {
                                                 {team.name}
                                             </h3>
                                         </div>
-                                        <div className="text-sm text-slate-500">{team.memberCount} members</div>
+                                        <div className="text-sm text-slate-500">{team.memberCount} meðlimir</div>
                                     </div>
                                 </div>
 
                                 <div className="text-right">
-                                    <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Sales</div>
+                                    <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Heildarsala</div>
                                     <div className="text-2xl font-black" style={{ color: team.color }}>
                                         {team.totalSales.toLocaleString()} kr
                                     </div>
                                     <div className="text-xs text-slate-500">
-                                        Avg: {Math.round(team.avgPerMember).toLocaleString()} kr/member
+                                        Meðaltal: {Math.round(team.avgPerMember).toLocaleString()} kr/meðlim
                                     </div>
                                 </div>
                             </div>
@@ -80,23 +80,23 @@ const TeamsView: React.FC<TeamsViewProps> = ({ users, sales, currentUser }) => {
                             <div className="space-y-2 pt-4 border-t border-white/5">
                                 <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wide mb-2">
                                     <Users size={14} />
-                                    Team Members
+                                    Liðsfélagar
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                     {team.members.slice(0, 6).map(member => {
                                         const memberSales = sales
-                                            .filter(s => s.userId === member.id)
+                                            .filter(s => s.userId === member.staffId)
                                             .reduce((sum, s) => sum + s.amount, 0);
 
                                         return (
                                             <div
                                                 key={member.id}
-                                                className={`glass rounded-lg p-2 ${member.id === currentUser.id ? 'border border-white/20' : ''
+                                                className={`glass rounded-lg p-2 ${member.staffId === currentUser.staffId ? 'border border-white/20' : ''
                                                     }`}
                                             >
                                                 <div className="font-bold text-sm text-white truncate">
                                                     {member.name}
-                                                    {member.id === currentUser.id && ' (You)'}
+                                                    {member.staffId === currentUser.staffId && ' (You)'}
                                                 </div>
                                                 <div className="text-xs text-slate-500">
                                                     {memberSales.toLocaleString()} kr
@@ -106,7 +106,7 @@ const TeamsView: React.FC<TeamsViewProps> = ({ users, sales, currentUser }) => {
                                     })}
                                     {team.memberCount > 6 && (
                                         <div className="glass rounded-lg p-2 flex items-center justify-center text-slate-500">
-                                            +{team.memberCount - 6} more
+                                            +{team.memberCount - 6} fleiri
                                         </div>
                                     )}
                                 </div>
@@ -120,10 +120,10 @@ const TeamsView: React.FC<TeamsViewProps> = ({ users, sales, currentUser }) => {
             <div className="glass rounded-2xl p-6">
                 <h3 className="font-black text-white mb-4 flex items-center gap-2">
                     <Trophy size={20} />
-                    Team vs Team Records
+                    Lið á móti Liði
                 </h3>
                 <div className="text-center py-8 text-slate-500">
-                    Team battles coming soon!
+                    Liðabardagar í bígerð!
                 </div>
             </div>
         </div>

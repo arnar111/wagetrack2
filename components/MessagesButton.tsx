@@ -64,7 +64,7 @@ const MessagesButton: React.FC<MessagesButtonProps> = ({
 
     // Group messages by conversation (other user)
     const conversations = messages.reduce((acc, msg) => {
-        const otherUserId = msg.fromUserId === currentUserId ? msg.fromUserId : msg.fromUserId;
+        const otherUserId = msg.fromUserId === currentUserId ? msg.toUserId : msg.fromUserId;
         if (!acc[otherUserId]) {
             acc[otherUserId] = {
                 userId: otherUserId,

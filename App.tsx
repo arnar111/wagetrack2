@@ -63,6 +63,7 @@ import WhatsNewModal from './components/WhatsNewModal.tsx';
 import { TVDashboard } from './components/TVMode';
 import AchievementsPanel from './components/AchievementsPanel.tsx';
 import AchievementUnlockedModal from './components/AchievementUnlockedModal.tsx';
+import OnboardingWalkthrough, { ONBOARDING_STORAGE_KEY } from './components/OnboardingWalkthrough.tsx';
 import { useAchievements } from './hooks/useAchievements';
 
 const App: React.FC = () => {
@@ -128,6 +129,7 @@ const App: React.FC = () => {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [spectatingBattle, setSpectatingBattle] = useState<any>(null);
   const [tvModeOpen, setTvModeOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
   const [persistedSaleType, setPersistedSaleType] = useState<'new' | 'upgrade'>('new');
@@ -760,6 +762,20 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Onboarding Replay */}
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-black text-white uppercase tracking-wide mb-1">Kynningarleiðbeiningar</h3>
+                      <p className="text-xs text-slate-500">Sýna kynninguna aftur til að rifja upp helstu eiginleika appsins</p>
+                    </div>
+                    <button
+                      onClick={() => setShowOnboarding(true)}
+                      className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-xl border border-indigo-500/30 transition-all text-xs font-bold"
+                    >
+                      Sýna
+                    </button>
+                  </div>
+
                   {/* Current Goals Display */}
                   <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
                     <h3 className="text-sm font-black text-white uppercase tracking-wide mb-4">Núverandi markmið</h3>
@@ -812,6 +828,12 @@ const App: React.FC = () => {
 
       {/* v3.0.0 - What's New Modal */}
       <WhatsNewModal />
+
+      {/* v3.1.0 - Onboarding Walkthrough */}
+      <OnboardingWalkthrough
+        forceShow={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
 
       {/* v3.0.0 - Achievement Unlocked Modal */}
       {newlyUnlocked.length > 0 && (

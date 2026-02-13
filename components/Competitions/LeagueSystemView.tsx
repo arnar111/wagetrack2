@@ -25,19 +25,19 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
             <div className="glass rounded-3xl p-8 border-2" style={{ borderColor: tierConfig.color }}>
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Your League</div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Þín deild</div>
                         <div className="flex items-center gap-3">
                             <span className="text-4xl">{tierConfig.icon}</span>
                             <div>
                                 <div className="text-3xl font-black" style={{ color: tierConfig.color }}>
                                     {currentTier}
                                 </div>
-                                <div className="text-sm text-slate-400">{currentPoints.toLocaleString()} points</div>
+                                <div className="text-sm text-slate-400">{currentPoints.toLocaleString()} stig</div>
                             </div>
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Season Rewards</div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wide mb-2">Tímabils verðlaun</div>
                         <div className="flex items-center gap-2 justify-end">
                             <Trophy size={20} className="text-amber-400" />
                             <span className="text-2xl font-black text-amber-400">{tierConfig.rewards}</span>
@@ -50,7 +50,7 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
                 {nextTier && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-400">Progress to {nextTier}</span>
+                            <span className="text-slate-400">Framvinda til {nextTier}</span>
                             <span className="font-bold text-white">{Math.round(promotionProgress)}%</span>
                         </div>
                         <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
@@ -63,14 +63,14 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
                             />
                         </div>
                         <div className="text-xs text-slate-500">
-                            {LEAGUE_TIERS[nextTier].minPoints - currentPoints} points to promotion
+                            {LEAGUE_TIERS[nextTier].minPoints - currentPoints} stig í stighækkun
                         </div>
                     </div>
                 )}
 
                 {currentTier === 'Diamond' && (
                     <div className="text-center text-slate-400 italic">
-                        🎉 You've reached the highest tier! Maintain your position!
+                        🎉 Þú hefur náð hæsta stigi! Haltu stöðunni!
                     </div>
                 )}
             </div>
@@ -79,7 +79,7 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
             <div className="space-y-3">
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                     <Award size={20} />
-                    All League Tiers
+                    Allar deildir
                 </h3>
 
                 <div className="grid gap-3">
@@ -103,14 +103,14 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
                                                 {tier}
                                             </div>
                                             <div className="text-xs text-slate-500">
-                                                {config.minPoints.toLocaleString()}+ points
+                                                {config.minPoints.toLocaleString()}+ stig
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-4">
                                         <div className="text-right">
-                                            <div className="text-xs text-slate-500">Rewards</div>
+                                            <div className="text-xs text-slate-500">Verðlaun</div>
                                             <div className="font-bold text-amber-400">{config.rewards} coins</div>
                                         </div>
 
@@ -119,7 +119,7 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
                                         )}
                                         {isCurrentTier && (
                                             <div className="px-3 py-1 bg-indigo-500/20 rounded-full text-xs font-black text-indigo-400">
-                                                CURRENT
+                                                NÚNA
                                             </div>
                                         )}
                                     </div>
@@ -134,20 +134,20 @@ const LeagueSystemView: React.FC<LeagueSystemViewProps> = ({ user, userStats }) 
             <div className="glass rounded-xl p-6">
                 <h4 className="font-black text-white mb-4 flex items-center gap-2">
                     <TrendingUp size={18} />
-                    How to Earn Points
+                    Hvernig safnar þú stigum
                 </h4>
                 <div className="space-y-3 text-sm">
                     <div className="flex justify-between">
-                        <span className="text-slate-400">Sales (per 1,000 ISK)</span>
-                        <span className="font-bold text-white">1 point</span>
+                        <span className="text-slate-400">Sölur (á hverjar 1.000 kr)</span>
+                        <span className="font-bold text-white">1 stig</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-slate-400">Battle Win</span>
-                        <span className="font-bold text-white">50 points</span>
+                        <span className="text-slate-400">Bardagasigur</span>
+                        <span className="font-bold text-white">50 stig</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-slate-400">Badge Earned</span>
-                        <span className="font-bold text-white">25 points</span>
+                        <span className="text-slate-400">Merki unnið</span>
+                        <span className="font-bold text-white">25 stig</span>
                     </div>
                 </div>
             </div>

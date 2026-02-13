@@ -249,9 +249,9 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
 
             <div className="grid grid-cols-4 gap-2 pb-4 px-4 md:px-0">
                 {[
-                    { id: 'battles' as const, label: 'Battles', icon: <Swords size={18} />, color: 'rose' },
-                    { id: 'progress' as const, label: 'Progress', icon: <TrendingUp size={18} />, color: 'purple' },
-                    { id: 'teams' as const, label: 'Teams', icon: <Users size={18} />, color: 'green' },
+                    { id: 'battles' as const, label: 'Bardagar', icon: <Swords size={18} />, color: 'rose' },
+                    { id: 'progress' as const, label: 'Framvinda', icon: <TrendingUp size={18} />, color: 'purple' },
+                    { id: 'teams' as const, label: 'Lið', icon: <Users size={18} />, color: 'green' },
                     { id: 'arena' as const, label: 'Búðin', icon: <Trophy size={18} />, color: 'amber' },
                 ].map((tab) => (
                     <button key={tab.id} onClick={() => setMainTab(tab.id)}
@@ -276,9 +276,9 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
                 ))}
 
                 {mainTab === 'progress' && [
-                    { id: 'rankings', label: 'Rankings', icon: <TrendingUp size={14} /> },
-                    { id: 'leagues', label: 'Leagues', icon: <Award size={14} /> },
-                    { id: 'badges', label: 'Badges', icon: <Star size={14} /> },
+                    { id: 'rankings', label: 'Stigatafla', icon: <TrendingUp size={14} /> },
+                    { id: 'leagues', label: 'Deildir', icon: <Award size={14} /> },
+                    { id: 'badges', label: 'Merki', icon: <Star size={14} /> },
                 ].map((tab) => (
                     <button key={tab.id} onClick={() => setProgressSubTab(tab.id as any)}
                         className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${progressSubTab === tab.id ? 'bg-purple-500/20 text-purple-400 border-2 border-purple-500/50' : 'text-slate-500 hover:text-white'

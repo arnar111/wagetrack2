@@ -42,12 +42,12 @@ const MultiLeaderboardView: React.FC<MultiLeaderboardViewProps> = ({ sales, shif
 
         // Calculate rankings
         const rankings = users.map(user => {
-            const userSales = filteredSales.filter(s => s.userId === user.id);
+            const userSales = filteredSales.filter(s => s.userId === user.staffId);
             const totalSales = userSales.reduce((sum, s) => sum + s.amount, 0);
             const salesCount = userSales.length;
 
             return {
-                userId: user.id,
+                userId: user.staffId,
                 name: user.name,
                 team: user.team,
                 totalSales,
@@ -69,7 +69,7 @@ const MultiLeaderboardView: React.FC<MultiLeaderboardViewProps> = ({ sales, shif
         { id: 'all_time', label: 'Allt', icon: Flame }
     ];
 
-    const userRank = leaderboardData.findIndex(r => r.userId === currentUser.id) + 1;
+    const userRank = leaderboardData.findIndex(r => r.userId === currentUser.staffId) + 1;
 
     return (
         <div className="space-y-6">
@@ -98,11 +98,11 @@ const MultiLeaderboardView: React.FC<MultiLeaderboardViewProps> = ({ sales, shif
                 <div className="glass rounded-2xl p-4 border-l-4 border-indigo-500">
                     <div className="flex items-center justify-between">
                         <div>
-                            <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Your Position</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Þín staða</div>
                             <div className="text-2xl font-black text-indigo-400">#{userRank}</div>
                         </div>
                         <div className="text-right">
-                            <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Sales</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Heildarsala</div>
                             <div className="text-2xl font-black text-white">
                                 {leaderboardData[userRank - 1]?.totalSales.toLocaleString()} kr
                             </div>
@@ -114,15 +114,15 @@ const MultiLeaderboardView: React.FC<MultiLeaderboardViewProps> = ({ sales, shif
             {/* Leaderboard Table */}
             <div className="glass rounded-2xl overflow-hidden">
                 <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 p-4 border-b border-white/5 bg-white/2">
-                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider">Rank</div>
-                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider">Name</div>
-                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider text-right">Sales</div>
-                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider text-right">Count</div>
+                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider">Sæti</div>
+                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider">Nafn</div>
+                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider text-right">Sala</div>
+                    <div className="text-xs font-black text-slate-500 uppercase tracking-wider text-right">Fjöldi</div>
                 </div>
 
                 <div className="divide-y divide-white/5">
                     {leaderboardData.slice(0, 20).map((entry, index) => {
-                        const isCurrentUser = entry.userId === currentUser.id;
+                        const isCurrentUser = entry.userId === currentUser.staffId;
                         const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-500';
 
                         return (

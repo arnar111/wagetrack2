@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Trophy, Zap, Bell, Volume2, PartyPopper } from 'lucide-react';
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const STORAGE_KEY = 'arnarflow_last_seen_version';
 
 interface WhatsNewModalProps {

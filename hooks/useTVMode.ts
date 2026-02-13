@@ -59,7 +59,7 @@ export function useTVMode() {
       setShowingCelebration(true);
       
       // Auto-dismiss celebration after 5 seconds
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
         setConfig(prev => ({
           ...prev,
           celebrationQueue: prev.celebrationQueue.map(c =>
@@ -68,6 +68,8 @@ export function useTVMode() {
         }));
         setShowingCelebration(false);
       }, 5000);
+
+      return () => clearTimeout(timerId);
     }
   }, [config.celebrationQueue, showingCelebration]);
 
@@ -81,7 +83,8 @@ export function useTVMode() {
   }, []);
 
   const exitFullscreen = useCallback(async (password?: string) => {
-    if (config.kioskMode && password !== 'takk2026') {
+    const kioskPassword = import.meta.env.VITE_KIOSK_PASSWORD || 'takk2026';
+    if (config.kioskMode && password !== kioskPassword) {
       return false;
     }
     

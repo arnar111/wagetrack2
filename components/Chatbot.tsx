@@ -23,10 +23,11 @@ const Chatbot: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSend = async (directMessage?: string) => {
+    const msg = directMessage || input;
+    if (!msg.trim() || loading) return;
 
-    const userMessage = input.trim();
+    const userMessage = msg.trim();
     setInput('');
     const newMessages = [...messages, { role: 'user', text: userMessage } as Message];
     setMessages(newMessages);
@@ -130,7 +131,7 @@ const Chatbot: React.FC = () => {
                 {quickQuestions.map(q => (
                   <button 
                     key={q} 
-                    onClick={() => { setInput(q); handleSend(); }}
+                    onClick={() => handleSend(q)}
                     className="shrink-0 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-slate-400 hover:text-indigo-400 hover:border-indigo-500/30 transition-all whitespace-nowrap"
                   >
                     {q}
