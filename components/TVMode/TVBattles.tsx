@@ -133,11 +133,18 @@ const TVBattles: React.FC<TVBattlesProps> = ({ battles, users }) => {
                             <div className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${
                               isLeader ? 'ring-yellow-400' : 'ring-zinc-700'
                             }`}>
-                              <img
-                                src={participant.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${participant.userId}`}
-                                alt={participant.name}
-                                className="w-full h-full object-cover"
-                              />
+                              {participant.avatar ? (
+                                <img
+                                  src={participant.avatar}
+                                  alt={participant.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                                  {participant.name?.charAt(0) || '?'}
+                                </div>
+                              )}
                             </div>
                             {isLeader && (
                               <div className="absolute -top-1 -right-1">

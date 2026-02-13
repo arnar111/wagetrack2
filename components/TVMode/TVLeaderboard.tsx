@@ -13,17 +13,20 @@ const TVLeaderboard: React.FC<TVLeaderboardProps> = ({ users, sales }) => {
 
   const leaderboardData = useMemo(() => {
     const userSales = users.map(user => {
-      const userTodaySales = sales.filter(
-        s => s.userId === user.id && s.date === todayStr
-      );
-      const totalAmount = userTodaySales.reduce((acc, s) => acc + s.amount, 0);
+      const userTodaySales = sales.filter(s => {
+        if (s.userId !== (user.id || user.staffId)) return false;
+        // Support both date string and timestamp
+        const saleDate = s.date || (s.timestamp ? new Date(s.timestamp).toISOString().split('T')[0] : '');
+        return saleDate === todayStr;
+      });
+      const totalAmount = userTodaySales.reduce((acc, s) => acc + (s.amount || 0), 0);
       const saleCount = userTodaySales.length;
       
       return {
-        id: user.id,
+        id: user.id || user.staffId,
         name: user.name,
         team: user.team,
-        avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+        avatar: user.avatar || user.photoURL || '',
         totalSales: totalAmount,
         saleCount,
         streak: user.streak || 0,
@@ -124,11 +127,18 @@ const TVLeaderboard: React.FC<TVLeaderboardProps> = ({ users, sales }) => {
                     'ring-zinc-700'
                   }`}
                 >
-                  <img 
-                    src={user.avatar} 
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {user.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {user.name?.charAt(0) || '?'}
+                    </div>
+                  )}
                 </div>
                 {user.streak >= 3 && (
                   <div className="absolute -bottom-1 -right-1 flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-500 rounded-full text-xs font-bold text-white">

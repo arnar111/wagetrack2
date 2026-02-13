@@ -199,7 +199,7 @@ const TVDashboard: React.FC<TVDashboardProps> = ({ users, sales, battles, onClos
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40"
+            className="absolute bottom-4 left-0 right-0 flex justify-center z-40"
           >
             <div className="flex items-center gap-4 px-6 py-3 bg-black/60 backdrop-blur-sm rounded-full border border-white/10">
               <button
