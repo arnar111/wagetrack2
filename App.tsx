@@ -132,6 +132,7 @@ const App: React.FC = () => {
   const [tvModeOpen, setTvModeOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
+  const [myTimePlanConfirm, setMyTimePlanConfirm] = useState<{ action: 'clock_in' | 'clock_out', goal?: number, shiftData?: any } | null>(null);
 
   // --- PERSISTED REGISTRATION STATE (survives tab switching) ---
   const [persistedSaleType, setPersistedSaleType] = useState<'new' | 'upgrade'>('new');
@@ -371,32 +372,36 @@ const App: React.FC = () => {
   const activeBattleWithScores = user?.staffId === '123' && !realActiveBattle ? demoBattle : realActiveBattle;
 
   // --- HANDLERS ---
+  const syncMyTimePlan = async () => {
+    if (!user?.kennitala) return;
+    try {
+      console.log('[MyTimePlan] Attempting sync...');
+      const result = await toggleMyTimePlanAttendance(user.kennitala);
+      console.log('[MyTimePlan] Result:', result);
+      if (result.success) {
+        const parsed = parseMyTimePlanMessage(result.message);
+        if (parsed) {
+          showToast(`MyTimePlan: ${parsed.action} kl. ${parsed.time}`, 'success');
+        } else {
+          const actionText = result.action === 'clock_in' ? 'Skráður inn' :
+            result.action === 'clock_out' ? 'Skráður út' : 'Skráning tókst';
+          showToast(`MyTimePlan: ${actionText}`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('[MyTimePlan] Sync failed:', error);
+      showToast('MyTimePlan sync tókst ekki', 'error');
+    }
+  };
+
   const onClockIn = async (goal: number) => {
     console.log('🟢🟢🟢 CLOCK IN TRIGGERED 🟢🟢🟢');
-    // DEBUG: Log kennitala status
     console.log('[MyTimePlan Debug] User:', user?.staffId, 'Kennitala:', user?.kennitala || 'NOT SET');
 
-    // First, sync with MyTimePlan if user has kennitala
+    // Show confirmation dialog if user has kennitala
     if (user?.kennitala) {
-      try {
-        console.log('[MyTimePlan] Attempting clock-in sync...');
-        const result = await toggleMyTimePlanAttendance(user.kennitala);
-        console.log('[MyTimePlan] Result:', result);
-        if (result.success) {
-          const parsed = parseMyTimePlanMessage(result.message);
-          if (parsed) {
-            showToast(`MyTimePlan: ${parsed.action} kl. ${parsed.time}`, 'success');
-          } else {
-            // Fallback: show the raw message or action
-            const actionText = result.action === 'clock_in' ? 'Skráður inn' :
-              result.action === 'clock_out' ? 'Skráður út' : 'Skráning tókst';
-            showToast(`MyTimePlan: ${actionText}`, 'success');
-          }
-        }
-      } catch (error) {
-        console.error('[MyTimePlan] Clock-in sync failed:', error);
-        showToast('MyTimePlan sync tókst ekki', 'error');
-      }
+      setMyTimePlanConfirm({ action: 'clock_in', goal });
+      return;
     }
 
     handleClockIn(goal, (g) => {
@@ -412,30 +417,34 @@ const App: React.FC = () => {
 
     console.log('🔴🔴🔴 CLOCK OUT TRIGGERED 🔴🔴🔴');
 
-    // Sync with MyTimePlan if user has kennitala
+    // Show confirmation dialog if user has kennitala
     if (user?.kennitala) {
-      try {
-        console.log('[MyTimePlan] Attempting clock-out sync...');
-        const result = await toggleMyTimePlanAttendance(user.kennitala);
-        console.log('[MyTimePlan] Clock-out result:', result);
-        if (result.success) {
-          const parsed = parseMyTimePlanMessage(result.message);
-          if (parsed) {
-            showToast(`MyTimePlan: ${parsed.action} kl. ${parsed.time}`, 'success');
-          } else {
-            // Fallback toast
-            const actionText = result.action === 'clock_in' ? 'Skráður inn' :
-              result.action === 'clock_out' ? 'Skráður út' : 'Skráning tókst';
-            showToast(`MyTimePlan: ${actionText}`, 'success');
-          }
-        }
-      } catch (error) {
-        console.error('[MyTimePlan] Clock-out sync failed:', error);
-        showToast('MyTimePlan sync tókst ekki', 'error');
-      }
+      setMyTimePlanConfirm({ action: 'clock_out', shiftData });
+      return;
     }
 
     await handleClockOut(shiftData, user.staffId);
+  };
+
+  const handleMyTimePlanConfirm = async (syncWithMyTimePlan: boolean) => {
+    if (!myTimePlanConfirm) return;
+    const { action, goal, shiftData } = myTimePlanConfirm;
+    setMyTimePlanConfirm(null);
+
+    if (syncWithMyTimePlan) {
+      await syncMyTimePlan();
+    }
+
+    if (action === 'clock_in' && goal !== undefined) {
+      handleClockIn(goal, (g) => {
+        if (user) {
+          setDoc(doc(db, "user_configs", user.staffId), { goals: { ...goals, daily: g } }, { merge: true });
+          updateGoals({ ...goals, daily: g });
+        }
+      });
+    } else if (action === 'clock_out' && shiftData) {
+      await handleClockOut(shiftData, user!.staffId);
+    }
   };
 
   // --- LOADING & AUTH ---
@@ -485,6 +494,36 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#01040f] text-slate-100 font-sans overflow-hidden">
+
+      {/* MyTimePlan Confirmation Dialog */}
+      {myTimePlanConfirm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-[#0a0f1e] border border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-black text-white mb-2">
+              {myTimePlanConfirm.action === 'clock_in' ? 'Skrá inn á MyTimePlan?' : 'Skrá út af MyTimePlan?'}
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">
+              {myTimePlanConfirm.action === 'clock_in'
+                ? 'Viltu einnig skrá þig inn á MyTimePlan?'
+                : 'Viltu einnig skrá þig út af MyTimePlan?'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleMyTimePlanConfirm(false)}
+                className="flex-1 px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-sm transition-all"
+              >
+                Nei
+              </button>
+              <button
+                onClick={() => handleMyTimePlanConfirm(true)}
+                className="flex-1 px-4 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm transition-all"
+              >
+                Já, skrá
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top Header Bar */}
       <header className="fixed top-0 left-0 right-0 z-[40] glass border-b border-white/5 h-16 flex items-center justify-between px-6 lg:pl-72">
