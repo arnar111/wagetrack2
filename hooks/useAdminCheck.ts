@@ -31,8 +31,8 @@ export const useAdminCheck = (user: User | null): UseAdminCheckReturn => {
         const adminStatus = ADMIN_STAFF_IDS.includes(String(user.staffId));
         setIsAdmin(adminStatus);
 
-        // Check manager status
-        const managerStatus = user.role === 'manager';
+        // Check manager status (admin also gets manager access)
+        const managerStatus = user.role === 'manager' || user.role === 'admin' || adminStatus;
         setIsManager(managerStatus);
 
         setLoading(false);
