@@ -49,6 +49,8 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
     const [roleAssignments, setRoleAssignments] = useState<Record<string, SalesmanRole>>({});
     const [duration, setDuration] = useState(240);
     const [bossName, setBossName] = useState('');
+    const [customTeamName, setCustomTeamName] = useState('');
+    const [captain, setCaptain] = useState<string>(currentUserId);
 
     // Filter users by team
     const teamMembers = useMemo(() => {
@@ -57,7 +59,7 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
         const teamMap: Record<string, string> = {
             'Hringurinn': 'hringurinn',
             'Verið': 'verid',
-            'Götuteymið': 'gotuteymi'
+            'Götugengið': 'gotugengid'
         };
         return allUsers.filter(u => teamMap[u.team] === selectedTeam);
     }, [allUsers, selectedTeam]);
@@ -97,7 +99,7 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
             battleType: selectedType,
             targetValue: target,
             currentDamage: 0,
-            participants: selectedParticipants, // string[] of userIds
+            participants: selectedParticipants,
             abilities: [],
             powerUps: [],
             duration,
@@ -106,7 +108,9 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
             status: 'active',
             createdBy: currentUserId,
             isManagerCreated: isManager,
-        };
+            captain,
+            ...(selectedTeam === 'custom' && customTeamName ? { customTeamName } : {}),
+        } as any;
 
         onCreate(boss);
         onClose();
@@ -200,16 +204,20 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
             case 3: // Team Selection
                 return (
                     <div className="space-y-4">
-                        <p className="text-xs text-slate-400 mb-4">Veldu þátttakendur</p>
+                        <p className="text-xs text-slate-400 mb-4">Veldu teymi eða settu saman þitt eigið</p>
 
-                        {/* Quick team select */}
-                        <div className="flex gap-2 mb-4">
+                        {/* Quick team select + custom */}
+                        <div className="flex gap-2 mb-4 flex-wrap">
                             {Object.entries(TEAMS).map(([key, team]) => (
                                 <button
                                     key={key}
                                     onClick={() => {
                                         setSelectedTeam(key as TeamId);
-                                        selectWholeTeam();
+                                        setCustomTeamName('');
+                                        // Auto-select whole team
+                                        const teamMap: Record<string, string> = { 'Hringurinn': 'hringurinn', 'Verið': 'verid', 'Götugengið': 'gotugengid' };
+                                        const ids = allUsers.filter(u => teamMap[u.team] === key).map(u => u.staffId);
+                                        setSelectedParticipants([...new Set([...ids, isManager ? '' : currentUserId].filter(Boolean))]);
                                     }}
                                     className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${selectedTeam === key
                                         ? 'bg-purple-500 text-white'
@@ -219,40 +227,84 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                     {team.emoji} {team.name}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => {
+                                    setSelectedTeam('custom');
+                                    setSelectedParticipants([currentUserId]);
+                                }}
+                                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${selectedTeam === 'custom'
+                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                    }`}
+                            >
+                                ✨ Sérsniðið
+                            </button>
                         </div>
+
+                        {/* Custom team name */}
+                        {selectedTeam === 'custom' && (
+                            <input
+                                type="text"
+                                value={customTeamName}
+                                onChange={e => setCustomTeamName(e.target.value)}
+                                placeholder="Nafn teymisins..."
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none text-sm font-bold"
+                            />
+                        )}
 
                         {/* Participant list */}
                         <div className="max-h-48 overflow-y-auto space-y-2">
                             {teamMembers.map(user => {
                                 const isSelected = selectedParticipants.includes(user.staffId);
                                 const isSelf = user.staffId === currentUserId;
+                                const isCaptain = captain === user.staffId;
 
                                 return (
-                                    <button
+                                    <div
                                         key={user.staffId}
-                                        onClick={() => toggleParticipant(user.staffId)}
-                                        disabled={isSelf && !isManager}
                                         className={`w-full p-3 rounded-xl flex items-center justify-between transition-all ${isSelected
                                             ? 'bg-emerald-500/20 border border-emerald-500/50'
                                             : 'bg-white/5 border border-white/10 hover:bg-white/10'
                                             }`}
                                     >
-                                        <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => toggleParticipant(user.staffId)}
+                                            disabled={isSelf && !isManager}
+                                            className="flex items-center gap-3 flex-1 text-left"
+                                        >
                                             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
                                                 {user.name?.substring(0, 2).toUpperCase()}
                                             </div>
-                                            <span className="font-bold text-white text-sm">{user.name}</span>
-                                            {isSelf && <span className="text-[9px] text-slate-500">(þú)</span>}
+                                            <div>
+                                                <span className="font-bold text-white text-sm">{user.name}</span>
+                                                {isSelf && <span className="text-[9px] text-slate-500 ml-1">(þú)</span>}
+                                                {isCaptain && <span className="text-[9px] text-amber-400 ml-1">👑 Fyrirliði</span>}
+                                            </div>
+                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {isSelected && (
+                                                <button
+                                                    onClick={() => setCaptain(user.staffId)}
+                                                    title="Gera fyrirliða"
+                                                    className={`p-1.5 rounded-lg transition-all ${isCaptain
+                                                        ? 'bg-amber-500/30 text-amber-400'
+                                                        : 'bg-white/5 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10'
+                                                        }`}
+                                                >
+                                                    <Crown size={14} />
+                                                </button>
+                                            )}
+                                            {isSelected && <Check size={16} className="text-emerald-400" />}
                                         </div>
-                                        {isSelected && <Check size={16} className="text-emerald-400" />}
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
 
-                        <p className="text-[10px] text-slate-500 text-center">
-                            {selectedParticipants.length} þátttakendur valdir
-                        </p>
+                        <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>{selectedParticipants.length} þátttakendur valdir</span>
+                            {captain && <span>👑 {allUsers.find(u => u.staffId === captain)?.name || 'Fyrirliði'}</span>}
+                        </div>
                     </div>
                 );
 
@@ -349,9 +401,19 @@ const BossBattleCreator: React.FC<BossBattleCreatorProps> = ({
                                         {selectedType === 'sales_count' ? ' sölur' : ' kr'}
                                     </span>
                                 </div>
+                                {(selectedTeam === 'custom' && customTeamName) && (
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-400">Teymi</span>
+                                        <span className="text-amber-400 font-bold">✨ {customTeamName}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
                                     <span className="text-slate-400">Þátttakendur</span>
                                     <span className="text-white font-bold">{selectedParticipants.length}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Fyrirliði</span>
+                                    <span className="text-amber-400 font-bold">👑 {allUsers.find(u => u.staffId === captain)?.name || '—'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400">Lengd</span>

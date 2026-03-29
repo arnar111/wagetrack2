@@ -23,9 +23,9 @@ export const TEAMS: Record<TeamName, Team> = {
         badges: [],
         seasonPoints: 0
     },
-    'Götuteymið': {
-        id: 'gotuteymid',
-        name: 'Götuteymið',
+    'Götugengið': {
+        id: 'gotugengid',
+        name: 'Götugengið',
         color: '#F59E0B', // Amber
         icon: '🟡',
         members: [],

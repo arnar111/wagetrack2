@@ -25,7 +25,7 @@ const Admin: React.FC<AdminProps> = () => {
   const [email, setEmail] = useState('');
   const [staffId, setStaffId] = useState('');
   const [role, setRole] = useState<'agent' | 'manager'>('agent');
-  const [team, setTeam] = useState<'Hringurinn' | 'Verið' | 'Other'>('Other');
+  const [team, setTeam] = useState<'Hringurinn' | 'Verið' | 'Götugengið' | 'Other'>('Other');
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // Project Form State
@@ -165,6 +165,7 @@ const Admin: React.FC<AdminProps> = () => {
                     <option value="Other">Annað</option>
                     <option value="Hringurinn">Hringurinn</option>
                     <option value="Verið">Verið</option>
+                    <option value="Götugengið">Götugengið</option>
                   </select>
                 </div>
               </div>
@@ -200,7 +201,7 @@ const Admin: React.FC<AdminProps> = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <select value={role} onChange={e => setRole(e.target.value as any)} className="bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-black uppercase outline-none cursor-pointer"><option value="agent">Agent</option><option value="manager">Manager</option></select>
-                <select value={team} onChange={e => setTeam(e.target.value as any)} className="bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-black uppercase outline-none cursor-pointer"><option value="Other">Annað</option><option value="Hringurinn">Hringurinn</option><option value="Verið">Verið</option></select>
+                <select value={team} onChange={e => setTeam(e.target.value as any)} className="bg-white/5 border border-white/10 p-4 rounded-2xl text-white font-black uppercase outline-none cursor-pointer"><option value="Other">Annað</option><option value="Hringurinn">Hringurinn</option><option value="Verið">Verið</option><option value="Götugengið">Götugengið</option></select>
               </div>
               <button type="submit" className="w-full py-4 rounded-2xl gradient-bg text-white font-black uppercase text-xs tracking-widest shadow-lg hover:scale-[1.02] active:scale-95 transition-all">Stofna Aðgang</button>
             </form>
@@ -229,6 +230,10 @@ const Admin: React.FC<AdminProps> = () => {
               <div className="space-y-1">
                 <div className="flex justify-between text-xs font-bold text-white mb-1"><span>Verið</span><span>{allUsers.filter(u => u.team === 'Verið').length}</span></div>
                 <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-violet-500" style={{ width: `${(allUsers.filter(u => u.team === 'Verið').length / allUsers.length) * 100}%` }}></div></div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs font-bold text-white mb-1"><span>Götugengið</span><span>{allUsers.filter(u => u.team === 'Götugengið').length}</span></div>
+                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${(allUsers.filter(u => u.team === 'Götugengið').length / allUsers.length) * 100}%` }}></div></div>
               </div>
             </div>
           </div>

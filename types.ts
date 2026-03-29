@@ -3,7 +3,7 @@ export interface User {
   name: string;
   staffId: string;
   role: 'agent' | 'manager';
-  team: 'Hringurinn' | 'Verið' | 'Götuteymið';
+  team: 'Hringurinn' | 'Verið' | 'Götugengið';
   uid?: string;
   email?: string;
   coins?: number;
@@ -163,7 +163,7 @@ export interface BattleModifier {
 }
 
 // Teams
-export type TeamName = 'Hringurinn' | 'Verið' | 'Götuteymið';
+export type TeamName = 'Hringurinn' | 'Verið' | 'Götugengið';
 
 export interface Team {
   id: string;

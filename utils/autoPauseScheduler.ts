@@ -45,6 +45,21 @@ export const getScheduledPauses = (team: TeamName): ScheduledPause[] => {
                     endMessage: '🚀 Pausan er lokið! Markmið framundan - áfram kákk!'
                 }
             ];
+        case 'Götugengið':
+            return [
+                {
+                    start: '12:30',
+                    end: '13:00',
+                    startMessage: '🌮 Hádegispási fyrir Götugengið! Hvílið ykkur vel!',
+                    endMessage: '🔥 Aftur á götuna! Áfram með söluþóknunina!'
+                },
+                {
+                    start: '15:00',
+                    end: '15:15',
+                    startMessage: '☕ Kaffipása! 15 mínútur til að endurhlaða.',
+                    endMessage: '💪 Kaffi búið — tími til að ná fleiri samningum!'
+                }
+            ];
         default:
             return [];
     }

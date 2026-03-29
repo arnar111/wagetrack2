@@ -26,25 +26,32 @@ export const getProjectMomentum = (shifts: Shift[], sales: Sale[]): ProjectMomen
 
   const hStats = getStats('Hringurinn');
   const vStats = getStats('Verið');
+  const gStats = getStats('Götugengið');
 
-  const maxEff = Math.max(hStats.efficiency, vStats.efficiency, 1);
-  const maxVol = Math.max(hStats.count, vStats.count, 1);
+  const maxEff = Math.max(hStats.efficiency, vStats.efficiency, gStats.efficiency, 1);
+  const maxVol = Math.max(hStats.count, vStats.count, gStats.count, 1);
 
   const hScore = ((hStats.efficiency / maxEff) * 70) + ((hStats.count / maxVol) * 30);
   const vScore = ((vStats.efficiency / maxEff) * 70) + ((vStats.count / maxVol) * 30);
+  const gScore = ((gStats.efficiency / maxEff) * 70) + ((gStats.count / maxVol) * 30);
+
+  const scores = [
+    { name: 'Hringurinn', score: hScore },
+    { name: 'Verið', score: vScore },
+    { name: 'Götugengið', score: gScore }
+  ].sort((a, b) => b.score - a.score);
 
   let recommendation = "";
-  if (hScore > vScore + 10) {
-    recommendation = "Hringurinn sýnir sterka sölutækni núna. Mælt með að fókusa á það verkefni.";
-  } else if (vScore > hScore + 10) {
-    recommendation = "Verið er á mikilli siglingu. Gjöfult verkefni í augnablikinu.";
+  if (scores[0].score > scores[1].score + 10) {
+    recommendation = `${scores[0].name} sýnir sterka sölutækni núna. Mælt með að fókusa á það verkefni.`;
   } else {
-    recommendation = "Jafnvægi er á milli verkefna. Bæði skila góðum árangri.";
+    recommendation = "Jafnvægi er á milli verkefna. Öll skila góðum árangri.";
   }
 
   return {
     hringurinn: Math.round(hScore),
     verid: Math.round(vScore),
+    gotugengid: Math.round(gScore),
     recommendation
   };
 };

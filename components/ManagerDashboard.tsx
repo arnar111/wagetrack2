@@ -92,7 +92,7 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ allShifts, allSales
       { id: 'g2', staffId: '102', name: 'Brynja Dögg', role: 'agent', team: 'Verið' },
       { id: 'g3', staffId: '103', name: 'Davíð Örn', role: 'agent', team: 'Hringurinn' },
       { id: 'g4', staffId: '104', name: 'Elísabet Jóns', role: 'agent', team: 'Verið' },
-      { id: 'g5', staffId: '105', name: 'Gunnar Freyr', role: 'agent', team: 'Götuteymið' },
+      { id: 'g5', staffId: '105', name: 'Gunnar Freyr', role: 'agent', team: 'Götugengið' },
     ];
 
     const shifts: Shift[] = [];
