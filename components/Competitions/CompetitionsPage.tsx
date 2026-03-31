@@ -23,6 +23,7 @@ interface CompetitionsPageProps {
     shifts: Shift[];
     user: User;
     allUsers?: User[];
+    userStatuses?: Record<string, boolean>;
     battles: Battle[];
     onCreateBattle: (battle: Battle) => void;
     onCancelBattle: (battleId: string) => void;
@@ -33,6 +34,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
     shifts,
     user,
     allUsers = [],
+    userStatuses = {},
     battles,
     onCreateBattle,
     onCancelBattle
@@ -296,6 +298,7 @@ const CompetitionsPage: React.FC<CompetitionsPageProps> = ({
                                 sales={sales}
                                 user={user}
                                 allUsers={allUsers}
+                                userStatuses={userStatuses}
                                 onBattleCreated={(battle) => {
                                     // Set pending status here (double check)
                                     const newBattle = { ...battle, status: 'pending' };

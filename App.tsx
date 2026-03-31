@@ -671,6 +671,7 @@ const App: React.FC = () => {
                 shifts={shifts}
                 user={user}
                 allUsers={allUsers}
+                userStatuses={userStatuses}
                 battles={battles}
                 onCreateBattle={createBattle}
                 onCancelBattle={cancelBattle}

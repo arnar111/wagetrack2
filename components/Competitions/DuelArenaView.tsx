@@ -17,10 +17,11 @@ interface DuelProps {
     sales: Sale[];
     user: UserType;
     allUsers?: UserType[];
+    userStatuses?: Record<string, boolean>;
     onBattleCreated: (battle: any) => void;
 }
 
-const DuelArenaView: React.FC<DuelProps> = ({ sales, user, allUsers = [], onBattleCreated }) => {
+const DuelArenaView: React.FC<DuelProps> = ({ sales, user, allUsers = [], userStatuses = {}, onBattleCreated }) => {
     const [selectedOpponent, setSelectedOpponent] = useState<{
         userId: string;
         name: string;
@@ -79,12 +80,15 @@ const DuelArenaView: React.FC<DuelProps> = ({ sales, user, allUsers = [], onBatt
                     const totalVal = userHistory.reduce((acc, s) => acc + s.amount, 0);
                     const avg = userHistory.length > 0 ? Math.round(totalVal / userHistory.length) : 0;
 
+                    // Use real presence status from RTDB
+                    const isOnline = userStatuses[u.staffId] || userStatuses[u.id || ''] || false;
+
                     return {
                         userId: u.staffId,
                         name: u.name,
                         avatar: u.name ? u.name.substring(0, 2).toUpperCase() : '??',
                         recentAvg: avg > 0 ? avg : 15000, // Default average if new
-                        online: true
+                        online: isOnline
                     };
                 });
 
