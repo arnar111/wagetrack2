@@ -10,7 +10,7 @@ const firebaseConfig = {
   storageBucket: "launatakk.firebasestorage.app",
   messagingSenderId: "220116110036",
   appId: "1:220116110036:web:f26a15d66857be9f968941",
-  databaseURL: "https://launatakk-default-rtdb.firebaseio.com"
+  databaseURL: "https://launatakk-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 console.log("🔥 Firebase Init: Microsoft Enabled");
